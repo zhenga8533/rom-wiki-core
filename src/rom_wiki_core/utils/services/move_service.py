@@ -93,7 +93,8 @@ class MoveService(BaseService):
 
         # Use PokeDBLoader to get paths
         data_dir = PokeDBLoader.get_data_dir()
-        source_gen = POKEDB_GENERATIONS[-1]  # Use the latest generation as source
+        config = get_config()
+        source_gen = config.pokedb_generations[-1]  # Use the latest generation as source
         source_move_dir = data_dir.parent / source_gen / "move"
         parsed_move_dir = PokeDBLoader.get_category_path("move")
 

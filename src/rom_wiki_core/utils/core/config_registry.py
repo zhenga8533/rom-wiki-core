@@ -7,14 +7,16 @@ to every function call.
 """
 
 import threading
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-# Type hint for WikiConfig (imported at runtime to avoid circular imports)
-_config: Optional[object] = None
+if TYPE_CHECKING:
+    from rom_wiki_core.config import WikiConfig
+
+_config: Optional["WikiConfig"] = None
 _lock = threading.Lock()
 
 
-def set_config(config) -> None:
+def set_config(config: "WikiConfig") -> None:
     """Set the global WikiConfig instance.
 
     This should be called once at the start of your application or in each
@@ -34,11 +36,11 @@ def set_config(config) -> None:
         _config = config
 
 
-def get_config():
+def get_config() -> "WikiConfig":
     """Get the global WikiConfig instance.
 
     Returns:
-        WikiConfig instance, or None if not set
+        WikiConfig instance
 
     Raises:
         RuntimeError: If config has not been set

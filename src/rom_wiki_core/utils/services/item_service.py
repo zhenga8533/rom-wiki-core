@@ -75,7 +75,8 @@ class ItemService(BaseService):
 
         # Use PokeDBLoader to get paths
         data_dir = PokeDBLoader.get_data_dir()
-        source_gen = POKEDB_GENERATIONS[-1]  # Use the latest generation as source
+        config = get_config()
+        source_gen = config.pokedb_generations[-1]  # Use the latest generation as source
         source_item_dir = data_dir.parent / source_gen / "item"
         parsed_item_dir = PokeDBLoader.get_category_path("item")
 
