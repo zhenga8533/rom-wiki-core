@@ -43,5 +43,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging system with rotating file handlers
 - Service layer for data manipulation
 
-[1.0.0]: https://github.com/zhenga8533/rom-wiki-core/compare/v0.1.0...HEAD
+[1.0.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.0
 [0.1.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v0.1.0
