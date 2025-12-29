@@ -12,6 +12,7 @@ Provides structured logging with:
 
 import json
 import logging
+import os
 import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -48,20 +49,43 @@ def configure_logging_system(config):
     # Clear entire logs directory if configured
     if CLEAR_ON_RUN and LOG_DIR.exists():
         import shutil
+        import time
 
-        # Close all existing file handlers to release locks
-        for logger_name in list(logging.Logger.manager.loggerDict.keys()):
-            logger_obj = logging.getLogger(logger_name)
-            for handler in logger_obj.handlers[:]:
-                if isinstance(handler, logging.FileHandler):
-                    handler.close()
-                    logger_obj.removeHandler(handler)
+        # Shutdown all logging to release file handles
+        logging.shutdown()
+
+        # Small delay for Windows to release file locks
+        time.sleep(0.1)
 
         try:
             shutil.rmtree(LOG_DIR)
             print(f"[Logger] Cleared logs directory: {LOG_DIR}")
+        except PermissionError as e:
+            # On Windows, files may still be locked - try individual file deletion
+            print(f"[Logger] Retrying with individual file deletion...")
+            try:
+                for root, dirs, files in os.walk(LOG_DIR, topdown=False):
+                    for name in files:
+                        file_path = Path(root) / name
+                        try:
+                            file_path.unlink()
+                        except Exception:
+                            pass  # Skip locked files
+                    for name in dirs:
+                        dir_path = Path(root) / name
+                        try:
+                            dir_path.rmdir()
+                        except Exception:
+                            pass
+                # Try to remove the root directory
+                try:
+                    LOG_DIR.rmdir()
+                    print(f"[Logger] Cleared logs directory: {LOG_DIR}")
+                except Exception:
+                    print(f"[Logger] Warning: Some log files could not be deleted (may be in use)")
+            except Exception as e:
+                print(f"[Logger] Warning: Could not clear logs directory: {e}")
         except OSError as e:
-            # Warn but don't fail - directory may be locked by other processes
             print(f"[Logger] Warning: Could not clear logs directory: {e}")
             print(f"[Logger] Tip: Make sure no other processes have log files open")
 
