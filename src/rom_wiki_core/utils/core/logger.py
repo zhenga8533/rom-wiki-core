@@ -95,6 +95,16 @@ def configure_logging_system(config):
             print(f"[Logger] Warning: Could not clear logs directory: {e}")
             print(f"[Logger] Tip: Make sure no other processes have log files open")
 
+    # Re-setup all existing loggers to add file handlers back
+    # This is needed because loggers created before configure_logging_system()
+    # won't automatically get new file handlers
+    for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+        logger_obj = logging.getLogger(logger_name)
+        # Only re-setup if the logger has handlers (meaning it was actively used)
+        if logger_obj.handlers:
+            # Re-run setup_logger to add missing file handlers
+            setup_logger(logger_name)
+
 # Standard fields that are part of every LogRecord instance
 # These fields are excluded when adding extra fields to JSON logs
 # See: https://docs.python.org/3/library/logging.html#logrecord-attributes
