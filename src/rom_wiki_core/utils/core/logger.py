@@ -51,8 +51,14 @@ def configure_logging_system(config):
         import shutil
         import time
 
-        # Shutdown all logging to release file handles
-        logging.shutdown()
+        # Close all file handlers manually (instead of logging.shutdown())
+        # to avoid disabling the logging system entirely
+        for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+            logger_obj = logging.getLogger(logger_name)
+            for handler in list(logger_obj.handlers):
+                if isinstance(handler, logging.FileHandler):
+                    handler.close()
+                    logger_obj.removeHandler(handler)
 
         # Small delay for Windows to release file locks
         time.sleep(0.1)
@@ -88,14 +94,6 @@ def configure_logging_system(config):
         except OSError as e:
             print(f"[Logger] Warning: Could not clear logs directory: {e}")
             print(f"[Logger] Tip: Make sure no other processes have log files open")
-
-        # After shutdown, clear all logger handlers and reset them
-        # This ensures that existing module-level loggers will be reinitialized
-        # when they try to log next time
-        for logger_name in list(logging.Logger.manager.loggerDict.keys()):
-            logger_obj = logging.getLogger(logger_name)
-            logger_obj.handlers.clear()
-            logger_obj.propagate = True  # Reset to default
 
 # Standard fields that are part of every LogRecord instance
 # These fields are excluded when adding extra fields to JSON logs
