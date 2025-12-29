@@ -455,10 +455,11 @@ class LocationGenerator(BaseGenerator):
             row += " | "
 
             # Moves column
-            for i, move in enumerate(pokemon["moves"]):
-                if i > 0:
-                    row += "<br>"
-                row += f"{i + 1}. {format_move(move, relative_path=self.config.generator_dex_relative_path)}"
+            if pokemon.get("moves"):
+                for i, move in enumerate(pokemon["moves"]):
+                    if i > 0:
+                        row += "<br>"
+                    row += f"{i + 1}. {format_move(move, relative_path=self.config.generator_dex_relative_path)}"
 
             markdown += row + " |\n"
 

@@ -285,8 +285,16 @@ class BaseGenerator(ABC):
                 generated_files.append(output_path)
 
             except Exception as e:
+                # Handle different entry types (tuple, object with .name, etc.)
+                if isinstance(entry, tuple):
+                    entry_name = entry[0] if entry else "unknown"
+                elif hasattr(entry, 'name'):
+                    entry_name = entry.name
+                else:
+                    entry_name = str(entry)
+
                 self.logger.error(
-                    f"Error generating page for {entry.name}: {e}",
+                    f"Error generating page for {entry_name}: {e}",
                     exc_info=True,
                 )
 
