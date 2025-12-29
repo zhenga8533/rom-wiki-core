@@ -48,10 +48,22 @@ def configure_logging_system(config):
     # Clear entire logs directory if configured
     if CLEAR_ON_RUN and LOG_DIR.exists():
         import shutil
+
+        # Close all existing file handlers to release locks
+        for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+            logger_obj = logging.getLogger(logger_name)
+            for handler in logger_obj.handlers[:]:
+                if isinstance(handler, logging.FileHandler):
+                    handler.close()
+                    logger_obj.removeHandler(handler)
+
         try:
             shutil.rmtree(LOG_DIR)
-        except OSError:
-            pass  # Ignore if directory is locked or can't be deleted
+            print(f"[Logger] Cleared logs directory: {LOG_DIR}")
+        except OSError as e:
+            # Warn but don't fail - directory may be locked by other processes
+            print(f"[Logger] Warning: Could not clear logs directory: {e}")
+            print(f"[Logger] Tip: Make sure no other processes have log files open")
 
 # Standard fields that are part of every LogRecord instance
 # These fields are excluded when adding extra fields to JSON logs
