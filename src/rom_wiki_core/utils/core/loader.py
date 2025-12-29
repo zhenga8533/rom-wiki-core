@@ -221,13 +221,17 @@ class PokeDBLoader:
         """Get the current data directory path (thread-safe).
 
         Returns:
-            Path: The data directory path (either custom or default)
+            Path: The data directory path
+
+        Raises:
+            ValueError: If data directory has not been set via set_data_dir()
         """
         with cls._data_dir_lock:
             if cls._data_dir is None:
-                # Default to <project_root>/data/pokedb/parsed
-                cls._data_dir = (
-                    Path(__file__).parent.parent.parent.parent.parent / "data" / "pokedb" / "parsed"
+                raise ValueError(
+                    "PokeDBLoader data directory not configured. "
+                    "Please call PokeDBLoader.set_data_dir(path) before using the loader. "
+                    "Example: PokeDBLoader.set_data_dir(Path(config.pokedb_data_dir) / 'parsed')"
                 )
             return cls._data_dir
 

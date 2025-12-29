@@ -59,11 +59,15 @@ class BaseGenerator(ABC):
 
         self.logger = get_logger(self.__class__.__module__)
         if project_root is None:
-            # Try to get project_root from config first, fallback to inferring from __file__
+            # Get project_root from config
             if config is not None and hasattr(config, 'project_root'):
                 self.project_root = config.project_root
             else:
-                self.project_root = Path(__file__).parent.parent.parent.parent
+                raise ValueError(
+                    f"{self.__class__.__name__} requires either 'project_root' parameter or "
+                    f"'config' with 'project_root' attribute. Please pass a WikiConfig instance "
+                    f"with project_root set, or provide project_root directly."
+                )
         else:
             self.project_root = project_root
 
