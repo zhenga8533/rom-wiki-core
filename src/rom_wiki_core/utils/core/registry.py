@@ -65,7 +65,7 @@ def get_parser_registry(config) -> dict[str, tuple[Any, str, str]]:
     return get_component_registry(config.parsers_registry, ("input_file", "output_dir"))
 
 
-def get_generator_registry(config) -> dict[str, tuple[Any, str]]:
+def get_generator_registry(config) -> dict[str, tuple[Any, Any, str]]:
     """
     Get the registry of available generators.
 
@@ -73,6 +73,13 @@ def get_generator_registry(config) -> dict[str, tuple[Any, str]]:
         config: WikiConfig instance containing generators_registry
 
     Returns:
-        dict[str, tuple[Any, str]]: Registry mapping generator names to (GeneratorClass, output_dir) tuples
+        dict[str, tuple[Any, Any, str]]: Registry mapping generator names to (GeneratorClass, config, output_dir) tuples
     """
-    return get_component_registry(config.generators_registry, ("output_dir",))
+    # Get the base registry with output_dir
+    base_registry = get_component_registry(config.generators_registry, ("output_dir",))
+    # Transform to 3-element tuples by inserting config
+    registry_with_config = {}
+    for name, (GeneratorClass, output_dir) in base_registry.items():
+        registry_with_config[name] = (GeneratorClass, config, output_dir)
+
+    return registry_with_config

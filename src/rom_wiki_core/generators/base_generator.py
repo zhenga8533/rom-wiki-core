@@ -59,7 +59,11 @@ class BaseGenerator(ABC):
 
         self.logger = get_logger(self.__class__.__module__)
         if project_root is None:
-            self.project_root = Path(__file__).parent.parent.parent.parent
+            # Try to get project_root from config first, fallback to inferring from __file__
+            if config is not None and hasattr(config, 'project_root'):
+                self.project_root = config.project_root
+            else:
+                self.project_root = Path(__file__).parent.parent.parent.parent
         else:
             self.project_root = project_root
 
