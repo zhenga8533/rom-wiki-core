@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - Fixed Release
+
+### Fixed
+
+- **Config Registry Type Annotations**: Added proper type hints using `TYPE_CHECKING` pattern
+  - `get_config()` now correctly returns `WikiConfig` type
+  - Prevents type checker errors when accessing config attributes
+  - Avoids circular import issues using forward references
+- **Service Layer**: Fixed undefined `POKEDB_GENERATIONS` variable in services
+  - `MoveService.copy_new_move()` now uses `get_config().pokedb_generations`
+  - `ItemService.copy_new_item()` now uses `get_config().pokedb_generations`
+- **Logging System**: Major improvements to logger configuration and lifecycle
+  - Fixed log directory clearing on Windows with proper file lock handling
+  - Logger handlers now correctly recreate after `configure_logging_system()` call
+  - Existing loggers (created before config) now get file handlers added back
+  - Improved handler detection to only skip when both console and file handlers exist
+  - Added fallback to individual file deletion when directory removal fails (Windows)
+
+### Added
+
+- **ItemService Export**: Added `ItemService` to `utils.services.__all__` for proper module exports
+
+### Changed
+
+- **Logging Configuration**: Replaced `logging.shutdown()` with selective file handler closing
+  - Prevents disabling the entire logging system during log cleanup
+  - Only closes and removes file handlers while keeping console handlers active
+  - Automatically re-setups existing loggers after configuration to restore file handlers
+
 ## [1.0.0] - Initial Release
 
 ### Added
@@ -43,5 +72,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging system with rotating file handlers
 - Service layer for data manipulation
 
+[1.0.1]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.1
 [1.0.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.0
 [0.1.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v0.1.0
