@@ -89,6 +89,14 @@ def configure_logging_system(config):
             print(f"[Logger] Warning: Could not clear logs directory: {e}")
             print(f"[Logger] Tip: Make sure no other processes have log files open")
 
+        # After shutdown, clear all logger handlers and reset them
+        # This ensures that existing module-level loggers will be reinitialized
+        # when they try to log next time
+        for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+            logger_obj = logging.getLogger(logger_name)
+            logger_obj.handlers.clear()
+            logger_obj.propagate = True  # Reset to default
+
 # Standard fields that are part of every LogRecord instance
 # These fields are excluded when adding extra fields to JSON logs
 # See: https://docs.python.org/3/library/logging.html#logrecord-attributes
@@ -212,6 +220,9 @@ def setup_logger(
     """
     logger = logging.getLogger(name)
 
+    # Ensure log directory exists (even if returning early)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
     # Avoid adding handlers multiple times
     if logger.hasHandlers():
         return logger
@@ -219,9 +230,6 @@ def setup_logger(
     # Set log level
     log_level = getattr(logging, level or LOG_LEVEL, logging.INFO)
     logger.setLevel(log_level)
-
-    # Ensure log directory exists
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
 
     # Console handler with optional colored output
     console_handler = logging.StreamHandler(sys.stdout)
