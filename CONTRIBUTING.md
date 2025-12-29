@@ -169,36 +169,62 @@ class MyService:
         set_config(config)
 ```
 
-### For Parsers (External Repositories)
+### For Parsers
 
-If you're creating parsers in external repositories:
+All parsers **must** follow this pattern:
 
 ```python
-class MyParser:
-    """Parser for XYZ data files.
+from rom_wiki_core.parsers import BaseParser
+
+class MyParser(BaseParser):
+    """Parser for processing custom documentation files.
 
     Args:
-        config: WikiConfig instance
-        input_file: Path to input file
-        output_dir: Directory for output files
+        BaseParser: Abstract base parser class
     """
 
-    def __init__(self, config, input_file: str, output_dir: str):
+    def __init__(
+        self,
+        config=None,
+        input_file: str = "",
+        output_dir: str = "docs",
+        project_root: Optional[Path] = None,
+    ):
         """Initialize the parser.
 
         Args:
-            config: WikiConfig instance
-            input_file: Path to input file
-            output_dir: Directory for output files
+            config: WikiConfig instance with project settings
+            input_file: Path to input file (relative to data/documentation/)
+            output_dir: Directory where markdown files will be generated
+            project_root: The root directory of the project. If None, uses config.project_root
         """
-        self.config = config
-        self.input_file = input_file
-        self.output_dir = output_dir
+        # ALWAYS call super().__init__ with config as first argument
+        super().__init__(
+            config=config,
+            input_file=input_file,
+            output_dir=output_dir,
+            project_root=project_root
+        )
 
-        # IMPORTANT: Register config for formatters
-        from rom_wiki_core.utils.core.config_registry import set_config
-        set_config(config)
+        # Define sections for your parser
+        self._sections = ["Section 1", "Section 2", "Section 3"]
+
+    def parse_section_1(self, line: str) -> None:
+        """Handle lines in Section 1."""
+        # Custom parsing logic
+        self._markdown += f"{line}\n"
+
+    # ... other section handlers
 ```
+
+**Key Points:**
+
+1. `config` must be the **first parameter** (after `self`)
+2. `config` must have a default value of `None`
+3. Always pass `config=config` to `super().__init__()`
+4. Config is automatically registered globally when passed to parser
+5. Define `_sections` list for section-based parsing
+6. Implement `parse_<section_name>()` methods for each section
 
 ## Testing
 
