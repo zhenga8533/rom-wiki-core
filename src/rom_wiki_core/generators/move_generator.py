@@ -2,7 +2,7 @@
 Generator for move markdown pages.
 
 This generator creates comprehensive move documentation pages with data
-from the configured version group (see config.VERSION_GROUP).
+from the configured version group (see WikiConfig.version_group).
 
 This generator:
 1. Reads move data from data/pokedb/parsed/move/
@@ -42,15 +42,16 @@ class MoveGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
         """Initialize the Move page generator.
 
         Args:
+            config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
         """
         # Initialize base generator
-        super().__init__(output_dir=output_dir, project_root=project_root)
+        super().__init__(config=config, output_dir=output_dir, project_root=project_root)
 
         self.category = "moves"
         self.subcategory_order = ["physical", "special", "status"]
@@ -180,18 +181,18 @@ class MoveGenerator(BaseGenerator):
         name = format_display_name(entry.name)
         link = f"[{name}](moves/{entry.name}.md)"
 
-        move_type = getattr(entry.type, VERSION_GROUP, None) or "???"
+        move_type = getattr(entry.type, self.config.version_group, None) or "???"
         type_badge = format_type_badge(move_type)
 
         category = format_category_badge(entry.damage_class)
 
-        power = getattr(entry.power, VERSION_GROUP, None)
+        power = getattr(entry.power, self.config.version_group, None)
         power_str = str(power) if power is not None and power > 0 else "—"
 
-        accuracy = getattr(entry.accuracy, VERSION_GROUP, None)
+        accuracy = getattr(entry.accuracy, self.config.version_group, None)
         accuracy_str = str(accuracy) if accuracy is not None and accuracy > 0 else "—"
 
-        pp = getattr(entry.pp, VERSION_GROUP, None)
+        pp = getattr(entry.pp, self.config.version_group, None)
         pp_str = str(pp) if pp is not None and pp > 0 else "—"
 
         return [link, type_badge, category, power_str, accuracy_str, pp_str]
@@ -208,7 +209,7 @@ class MoveGenerator(BaseGenerator):
         md = ""
 
         display_name = format_display_name(move.name)
-        move_type = getattr(move.type, VERSION_GROUP, None) or "???"
+        move_type = getattr(move.type, self.config.version_group, None) or "???"
         category = move.damage_class.title() if move.damage_class else "Unknown"
 
         md += "<div>\n"
@@ -228,11 +229,11 @@ class MoveGenerator(BaseGenerator):
         md = "## :material-chart-box: Stats\n\n"
 
         # Get stats
-        move_type = getattr(move.type, VERSION_GROUP, None) or "???"
+        move_type = getattr(move.type, self.config.version_group, None) or "???"
         category = move.damage_class.title() if move.damage_class else "Unknown"
-        power = getattr(move.power, VERSION_GROUP, None)
-        accuracy = getattr(move.accuracy, VERSION_GROUP, None)
-        pp = getattr(move.pp, VERSION_GROUP, None)
+        power = getattr(move.power, self.config.version_group, None)
+        accuracy = getattr(move.accuracy, self.config.version_group, None)
+        pp = getattr(move.pp, self.config.version_group, None)
         priority = move.priority
 
         # Use grid cards for a cleaner layout
@@ -299,7 +300,7 @@ class MoveGenerator(BaseGenerator):
         # Full effect
         if move.effect:
             # Try to get version-specific effect, fallback to first available
-            effect_text = getattr(move.effect, VERSION_GROUP, None)
+            effect_text = getattr(move.effect, self.config.version_group, None)
 
             if effect_text:
                 md += f'!!! info "Description"\n\n'
@@ -308,8 +309,8 @@ class MoveGenerator(BaseGenerator):
         # Short effect (handle GameVersionStringMap object)
         if move.short_effect:
             short_effect_text = None
-            if hasattr(move.short_effect, VERSION_GROUP):
-                short_effect_text = getattr(move.short_effect, VERSION_GROUP, None)
+            if hasattr(move.short_effect, self.config.version_group):
+                short_effect_text = getattr(move.short_effect, self.config.version_group, None)
             else:
                 short_effect_text = str(move.short_effect)
 
@@ -334,10 +335,10 @@ class MoveGenerator(BaseGenerator):
         """
         md = "## :material-book-open: In-Game Description\n\n"
 
-        flavor_text = getattr(move.flavor_text, VERSION_GROUP, None)
+        flavor_text = getattr(move.flavor_text, self.config.version_group, None)
 
         if flavor_text:
-            md += f'!!! quote "{VERSION_GROUP_FRIENDLY}"\n\n'
+            md += f'!!! quote "{self.config.version_group_friendly}"\n\n'
             md += f"    {flavor_text}\n\n"
         else:
             md += "*No in-game description available.*\n\n"
@@ -375,28 +376,28 @@ class MoveGenerator(BaseGenerator):
             md += "### :material-arrow-up-bold: Level-Up\n\n"
             pokemon = [entry["pokemon"] for entry in move_data["level_up"]]
             level = [f"Level {entry.get('level', '—')}" for entry in move_data["level_up"]]
-            md += format_pokemon_card_grid(pokemon, extra_info=level)
+            md += format_pokemon_card_grid(pokemon, extra_info=level, config=self.config)
             md += "\n\n"
 
         # TM/HM
         if move_data.get("machine"):
             md += "### :material-disc: TM/HM\n\n"
             pokemon = [entry["pokemon"] for entry in move_data["machine"]]
-            md += format_pokemon_card_grid(pokemon)
+            md += format_pokemon_card_grid(pokemon, config=self.config)
             md += "\n\n"
 
         # Egg moves
         if move_data.get("egg"):
             md += "### :material-egg-outline: Egg Moves\n\n"
             pokemon = [entry["pokemon"] for entry in move_data["egg"]]
-            md += format_pokemon_card_grid(pokemon)
+            md += format_pokemon_card_grid(pokemon, config=self.config)
             md += "\n\n"
 
         # Tutor moves
         if move_data.get("tutor"):
             md += "### :material-school: Tutor\n\n"
             pokemon = [entry["pokemon"] for entry in move_data["tutor"]]
-            md += format_pokemon_card_grid(pokemon)
+            md += format_pokemon_card_grid(pokemon, config=self.config)
             md += "\n\n"
 
         return md

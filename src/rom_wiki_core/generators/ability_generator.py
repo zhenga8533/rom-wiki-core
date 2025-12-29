@@ -2,7 +2,7 @@
 Generator for ability markdown pages.
 
 This generator creates comprehensive ability documentation pages with data
-from the configured version group (see config.VERSION_GROUP).
+from the configured version group (see WikiConfig.version_group).
 
 This generator:
 1. Reads ability data from data/pokedb/parsed/ability/
@@ -38,15 +38,16 @@ class AbilityGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
         """Initialize the Ability page generator.
 
         Args:
+            config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
         """
         # Initialize base generator
-        super().__init__(output_dir=output_dir, project_root=project_root)
+        super().__init__(config=config, output_dir=output_dir, project_root=project_root)
 
         self.category = "abilities"
         self.subcategory_order = [
@@ -164,12 +165,12 @@ class AbilityGenerator(BaseGenerator):
 
         if normal:
             md += "### :material-star: Standard Ability\n\n"
-            md += format_pokemon_card_grid(normal)
+            md += format_pokemon_card_grid(normal, config=self.config)
             md += "\n\n"
 
         if hidden:
             md += "### :material-eye-off: Hidden Ability\n\n"
-            md += format_pokemon_card_grid(hidden)
+            md += format_pokemon_card_grid(hidden, config=self.config)
             md += "\n\n"
 
         return md
@@ -188,7 +189,7 @@ class AbilityGenerator(BaseGenerator):
         # Full effect
         if ability.effect:
             # Try to get version-specific effect, fallback to first available
-            effect_text = getattr(ability.effect, VERSION_GROUP, None)
+            effect_text = getattr(ability.effect, self.config.version_group, None)
 
             if effect_text:
                 md += f'!!! info "Full Description"\n\n'
@@ -216,10 +217,10 @@ class AbilityGenerator(BaseGenerator):
         """
         md = "## :material-book-open: In-Game Description\n\n"
 
-        flavor_text = getattr(ability.flavor_text, VERSION_GROUP, None)
+        flavor_text = getattr(ability.flavor_text, self.config.version_group, None)
 
         if flavor_text:
-            md += f'!!! quote "{VERSION_GROUP_FRIENDLY}"\n\n'
+            md += f'!!! quote "{self.config.version_group_friendly}"\n\n'
             md += f"    {flavor_text}\n\n"
         else:
             md += "*No in-game description available.*\n\n"

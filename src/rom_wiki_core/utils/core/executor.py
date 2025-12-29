@@ -108,20 +108,33 @@ def run_parsers(parser_names: list[str], parser_registry: dict[str, tuple[Any, s
 
 
 def run_generators(
-    generator_names: list[str], generator_registry: dict[str, tuple[Any, str]]
+    generator_names: list[str], generator_registry: dict[str, tuple[Any, ...]]
 ) -> bool:
     """Run specified generators.
 
     Args:
         generator_names (list[str]): List of generator names to run (or ['all'] for all generators)
-        generator_registry (dict[str, tuple[Any, str]]): Registry mapping generator names to (GeneratorClass, output_dir) tuples
+        generator_registry (dict[str, tuple[Any, ...]]): Registry mapping generator names to tuples:
+            - (GeneratorClass, config, output_dir) - with config (recommended)
+            - (GeneratorClass, output_dir) - backward compatible without config
 
     Returns:
         bool: True if all generators succeeded, False if any failed
     """
 
     def instantiate_generator(registry_tuple):
-        GeneratorClass, output_dir = registry_tuple
-        return GeneratorClass(output_dir)
+        if len(registry_tuple) == 2:
+            # Backward compatible: (GeneratorClass, output_dir)
+            GeneratorClass, output_dir = registry_tuple
+            return GeneratorClass(output_dir=output_dir)
+        elif len(registry_tuple) == 3:
+            # New format: (GeneratorClass, config, output_dir)
+            GeneratorClass, config, output_dir = registry_tuple
+            return GeneratorClass(config=config, output_dir=output_dir)
+        else:
+            raise ValueError(
+                f"Invalid registry tuple format. Expected (GeneratorClass, output_dir) "
+                f"or (GeneratorClass, config, output_dir), got {len(registry_tuple)} elements"
+            )
 
     return run_components(generator_names, generator_registry, "generator", instantiate_generator)

@@ -74,15 +74,16 @@ class PokemonGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
         """Initialize the Pokemon page generator.
 
         Args:
+            config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
         """
         # Initialize base generator
-        super().__init__(output_dir=output_dir, project_root=project_root)
+        super().__init__(config=config, output_dir=output_dir, project_root=project_root)
 
         # Create pokemon subdirectory
         self.output_dir = self.output_dir / "pokemon"
@@ -197,7 +198,7 @@ class PokemonGenerator(BaseGenerator):
         dex_str = f"**{dex_num:03d}**" if isinstance(dex_num, int) else f"**{dex_num}**"
 
         # Sprite
-        sprite_cell = format_pokemon(entry, is_linked=False)
+        sprite_cell = format_pokemon(entry, is_linked=False, config=self.config)
 
         # Name link
         name = format_display_name(entry.name)
@@ -320,7 +321,7 @@ class PokemonGenerator(BaseGenerator):
         md += '\t<div class="pokemon-hero-content">\n'
 
         # Sprite with enhanced shadow and glow
-        sprite_url = get_pokemon_sprite(pokemon)
+        sprite_url = get_pokemon_sprite(pokemon, self.config)
         sprite = f'<img src="{sprite_url}" alt="{pokemon.name}" class="sprite" />'
         md += f'\t\t<div class="pokemon-hero-sprite">\n'
         md += f"\t\t\t{sprite}\n"
@@ -775,6 +776,7 @@ class PokemonGenerator(BaseGenerator):
                 highlighted_pokemon,
                 relative_path=".",
                 extra_info=highlighted_extra_info,
+                config=self.config,
             )
             md += "\n\n"
 
@@ -802,7 +804,7 @@ class PokemonGenerator(BaseGenerator):
             forms: list[Union[str, Pokemon]] = [f.name for f in pokemon.forms]
             categories = [format_display_name(f.category) for f in pokemon.forms]
 
-            md += format_pokemon_card_grid(forms, extra_info=categories)
+            md += format_pokemon_card_grid(forms, extra_info=categories, config=self.config)
             md += "\n\n"
 
         return md

@@ -40,6 +40,7 @@ class LocationGenerator(BaseGenerator):
 
     def __init__(
         self,
+        config=None,
         output_dir: str = "docs/locations",
         input_dir: str = "data/locations",
         project_root: Optional[Path] = None,
@@ -47,12 +48,13 @@ class LocationGenerator(BaseGenerator):
         """Initialize the Location page generator.
 
         Args:
+            config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/locations".
             input_dir (str, optional): Directory where location JSON files are stored. Defaults to "data/locations".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
         """
         # Initialize base generator
-        super().__init__(output_dir=output_dir, project_root=project_root)
+        super().__init__(config=config, output_dir=output_dir, project_root=project_root)
 
         # Set category for BaseGenerator
         self.category = "locations"
@@ -438,7 +440,7 @@ class LocationGenerator(BaseGenerator):
 
         for pokemon in team:
             # Pokemon column
-            row = f"{tab}| {format_pokemon(pokemon['pokemon'], relative_path=self.config.generator_dex_relative_path)} | "
+            row = f"{tab}| {format_pokemon(pokemon['pokemon'], relative_path=self.config.generator_dex_relative_path, config=self.config)} | "
 
             # Type(s) column
             badges = " ".join(format_type_badge(t) for t in pokemon["types"])
@@ -482,7 +484,7 @@ class LocationGenerator(BaseGenerator):
 
             for encounter in encounters:
                 pokemon_md = format_pokemon(
-                    encounter["pokemon"], relative_path=self.config.generator_dex_relative_path
+                    encounter["pokemon"], relative_path=self.config.generator_dex_relative_path, config=self.config
                 )
 
                 # Types
@@ -524,6 +526,7 @@ class LocationGenerator(BaseGenerator):
                 pokemon_encounters,
                 relative_path="../../pokedex/pokemon",
                 extra_info=[f"*{encounter_type.split(' ')[0]}*"] * len(pokemon_encounters),
+                config=self.config,
             )
             markdown += f"{'\n'.join(f'\t{l}'.rstrip() for l in pokemon_cards.splitlines())}\n\n"
 

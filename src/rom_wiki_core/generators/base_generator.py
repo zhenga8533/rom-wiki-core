@@ -6,6 +6,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Optional, Union
 
+from rom_wiki_core.utils.core.config_registry import set_config
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.formatters.table_formatter import create_table
 from rom_wiki_core.utils.formatters.yaml_formatter import update_pokedex_subsection
@@ -32,12 +33,14 @@ class BaseGenerator(ABC):
 
     def __init__(
         self,
+        config=None,
         output_dir: str = "docs",
         project_root: Optional[Path] = None,
     ):
         """Initialize the base generator.
 
         Args:
+            config: WikiConfig instance with project settings. If not provided, will try to use global config.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
         """
@@ -48,6 +51,11 @@ class BaseGenerator(ABC):
         self.name_special_cases = {}
         self.index_table_headers = []
         self.index_table_alignments = []
+
+        # Store and register config
+        self.config = config
+        if config is not None:
+            set_config(config)
 
         self.logger = get_logger(self.__class__.__module__)
         if project_root is None:
@@ -295,7 +303,7 @@ class BaseGenerator(ABC):
 
         title = self.category.capitalize()
         md = f"# {title}\n\n"
-        md += f"Complete list of all {self.category} in **{GAME_TITLE}**.\n\n"
+        md += f"Complete list of all {self.category} in **{self.config.game_title}**.\n\n"
         md += f"> Click on any of the {title} to see its full description.\n\n"
         for subcategory in self.subcategory_order:
             if subcategory not in categorized_entries:

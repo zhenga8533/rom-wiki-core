@@ -5,7 +5,8 @@ A reusable Python library for generating MkDocs wikis for Pokemon ROM hacks. Thi
 ## Features
 
 - **Modular Architecture** - Reusable generators, services, and formatters
-- **Dependency Injection** - Clean configuration system via WikiConfig
+- **Config Registry Pattern** - Clean, global configuration management with thread-safe access
+- **Dependency Injection** - Pass config once, use everywhere
 - **PokeDB Integration** - Automatic data loading from PokeDB repository
 - **MkDocs Compatible** - Generates markdown pages ready for MkDocs Material
 - **Type Safe** - Comprehensive dataclasses for Pokemon, moves, items, abilities
@@ -78,9 +79,13 @@ CONFIG = WikiConfig(
 
 ```python
 # my_romhack_wiki/main.py
+from rom_wiki_core.utils.core.config_registry import set_config
 from rom_wiki_core.utils.data import models
 from rom_wiki_core.utils.core import logger
 from my_romhack_wiki.config import CONFIG
+
+# Set config globally (enables formatters to work automatically)
+set_config(CONFIG)
 
 # Configure modules
 models.configure_models(CONFIG)
@@ -97,8 +102,8 @@ from rom_wiki_core.utils.core.initializer import PokeDBInitializer
 initializer = PokeDBInitializer(CONFIG)
 initializer.run()
 
-# Generate Pokemon pages
-pokemon_gen = PokemonGenerator(CONFIG)
+# Generate Pokemon pages (config auto-registered when passed to generator)
+pokemon_gen = PokemonGenerator(config=CONFIG)
 pokemon_gen.generate()
 ```
 
@@ -181,12 +186,21 @@ Generate markdown documentation pages from PokeDB data:
 - **ItemGenerator** - Item pages with effects and locations
 - **LocationGenerator** - Location pages with wild encounters and trainers
 
-All generators accept `WikiConfig` in their constructor:
+All generators accept an optional `config` parameter:
 
 ```python
-generator = PokemonGenerator(config)
+# Recommended: Pass config explicitly
+generator = PokemonGenerator(config=config)
+generator.generate()
+
+# Alternative: Rely on global config (must call set_config() first)
+from rom_wiki_core.utils.core.config_registry import set_config
+set_config(config)
+generator = PokemonGenerator()  # Uses global config
 generator.generate()
 ```
+
+When you pass config to a generator, it's automatically registered globally, making it available to all formatters.
 
 ### Services
 
@@ -213,7 +227,35 @@ class Pokemon:
     # ... and many more fields
 ```
 
-## Configuration Requirements
+## Configuration Management
+
+### Config Registry
+
+The config registry provides global, thread-safe access to your WikiConfig:
+
+```python
+from rom_wiki_core.utils.core.config_registry import set_config, get_config
+
+# Set config globally (call once at startup)
+set_config(config)
+
+# Now formatters work automatically without passing config
+from rom_wiki_core.utils.formatters import format_pokemon
+result = format_pokemon("pikachu")  # Uses global config
+```
+
+**When is config set?**
+
+1. **Automatically** when you pass config to a generator:
+   ```python
+   generator = PokemonGenerator(config=config)  # Config auto-registered
+   ```
+
+2. **Manually** for parsers or standalone use:
+   ```python
+   from rom_wiki_core.utils.core.config_registry import set_config
+   set_config(config)  # Set explicitly
+   ```
 
 ### Module Initialization
 
@@ -240,38 +282,6 @@ initializer = PokeDBInitializer(config)
 initializer.run()  # Downloads to config.pokedb_data_dir
 ```
 
-## Migration Guide
-
-### From bbvw2-redux-wiki (or Similar)
-
-**Before:**
-
-```python
-from bbvw2_redux_wiki.generators.pokemon_generator import PokemonGenerator
-from bbvw2_redux_wiki.utils.core import config
-
-generator = PokemonGenerator()
-generator.generate()
-```
-
-**After:**
-
-```python
-from rom_wiki_core.generators import PokemonGenerator
-from my_wiki.config import CONFIG
-
-generator = PokemonGenerator(CONFIG)
-generator.generate()
-```
-
-**Key Changes:**
-
-1. Create a `WikiConfig` instance for your project
-2. Call `models.configure_models(config)` on startup
-3. Call `logger.configure_logging_system(config)` on startup
-4. Pass config to all generators and services
-5. Use `rom_wiki_core` imports instead of project-specific imports
-
 ## Dependencies
 
 - Python >= 3.12
@@ -296,13 +306,18 @@ from rom_wiki_core.generators import (
     ItemGenerator,
     LocationGenerator
 )
+from rom_wiki_core.utils.core.config_registry import set_config
 
+# Set config once
+set_config(CONFIG)
+
+# Create generators (config auto-registered when passed)
 generators = [
-    PokemonGenerator(CONFIG),
-    MoveGenerator(CONFIG),
-    AbilityGenerator(CONFIG),
-    ItemGenerator(CONFIG),
-    LocationGenerator(CONFIG),
+    PokemonGenerator(config=CONFIG),
+    MoveGenerator(config=CONFIG),
+    AbilityGenerator(config=CONFIG),
+    ItemGenerator(config=CONFIG),
+    LocationGenerator(config=CONFIG),
 ]
 
 for generator in generators:
@@ -314,21 +329,28 @@ for generator in generators:
 ```python
 from rom_wiki_core.utils.services import MoveService
 from rom_wiki_core.utils.core.loader import PokeDBLoader
+from rom_wiki_core.utils.core.config_registry import set_config
+
+# Set config for services
+set_config(CONFIG)
 
 # Update moves from newer generation
 move_service = MoveService(CONFIG)
 move_service.copy_new_moves()
 
-# Load Pokemon data
-loader = PokeDBLoader(CONFIG)
-pokemon = loader.load_pokemon("pikachu")
-print(f"{pokemon.name}: {pokemon.base_stats.hp} HP")
+# Load Pokemon data (uses static methods, no config needed)
+pokemon = PokeDBLoader.load_pokemon("pikachu")
+print(f"{pokemon.name}: {pokemon.stats.hp} HP")
 ```
 
 ### Format Output
 
 ```python
 from rom_wiki_core.utils.formatters import format_pokemon, format_move, format_type_badge
+from rom_wiki_core.utils.core.config_registry import set_config
+
+# Set config once (required for sprite functionality)
+set_config(CONFIG)
 
 # Format a Pokemon with sprite and link
 formatted = format_pokemon("pikachu", relative_path="..")
@@ -337,26 +359,29 @@ formatted = format_pokemon("pikachu", relative_path="..")
 # Format a type badge
 badge = format_type_badge("electric")
 # Output: <span class="type-badge" style="background: ...">Electric</span>
+
+# Or pass config explicitly
+formatted = format_pokemon("pikachu", relative_path="..", config=CONFIG)
 ```
 
 ## Contributing
 
 Contributions are welcome! This library is designed to support any Pokemon ROM hack wiki project.
 
-### Development Setup
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup
+- Code style guidelines
+- Config management best practices
+- Testing requirements
+- Pull request process
+
+### Quick Start for Contributors
 
 ```bash
 git clone https://github.com/zhenga8533/rom-wiki-core.git
 cd rom-wiki-core
 pip install -e ".[dev]"
 ```
-
-### Guidelines
-
-- Follow existing code style (Black formatter, 100 char line length)
-- Add type hints to all functions
-- Update documentation for new features
-- Test with multiple ROM hack configurations
 
 ## License
 
@@ -373,5 +398,3 @@ MIT License - See [LICENSE](LICENSE) file for details.
 For issues, questions, or contributions:
 
 - Open an issue on [GitHub](https://github.com/zhenga8533/rom-wiki-core/issues)
-- See [MIGRATION_GUIDE.md](MIGRATION_GUIDE.md) for detailed migration instructions
-- Check [REVIEW_SUMMARY.md](REVIEW_SUMMARY.md) for recent changes and fixes

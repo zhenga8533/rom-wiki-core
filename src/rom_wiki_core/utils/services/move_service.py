@@ -6,6 +6,7 @@ from typing import Any
 
 import orjson
 
+from rom_wiki_core.utils.core.config_registry import get_config
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.services.base_service import BaseService
@@ -40,7 +41,8 @@ class MoveService(BaseService):
 
         # Create new dict with only configured version groups
         normalized_value = {}
-        for version_group in POKEDB_VERSION_GROUPS:
+        config = get_config()
+        for version_group in config.pokedb_version_groups:
             # Use existing value if present, otherwise use most common
             normalized_value[version_group] = field_value.get(version_group, most_common)
             if version_group not in field_value:
@@ -158,7 +160,8 @@ class MoveService(BaseService):
                 return False
 
             # Capture old value for change tracking
-            old_type = getattr(move.type, VERSION_GROUP, "unknown")
+            config = get_config()
+            old_type = getattr(move.type, config.version_group, "unknown")
 
             # Update type for all version groups
             for version_key in move.type.__slots__:
@@ -227,9 +230,10 @@ class MoveService(BaseService):
             field_obj = getattr(move, field_name)
 
             # Capture old value for change tracking
+            config = get_config()
             if hasattr(field_obj, "keys"):
                 # Version group object
-                old_value_raw = getattr(field_obj, VERSION_GROUP, "unknown")
+                old_value_raw = getattr(field_obj, config.version_group, "unknown")
             else:
                 # Plain value
                 old_value_raw = field_obj

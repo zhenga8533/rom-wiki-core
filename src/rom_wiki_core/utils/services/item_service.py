@@ -9,9 +9,7 @@ This service handles:
 
 import orjson
 
-    POKEDB_GENERATIONS,
-    POKEDB_VERSION_GROUPS,
-)
+from rom_wiki_core.utils.core.config_registry import get_config
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.data.constants import MOVE_DISPLAY_CASES
@@ -174,7 +172,8 @@ class ItemService(BaseService):
         # Both move and TM flavor_text are GameVersionStringMap objects
         if hasattr(move.flavor_text, "keys"):
             # It's a version group object
-            for version_group in POKEDB_VERSION_GROUPS:
+            config = get_config()
+            for version_group in config.pokedb_version_groups:
                 move_flavor = getattr(move.flavor_text, version_group, None)
                 if move_flavor:
                     setattr(tm_item.flavor_text, version_group, move_flavor)

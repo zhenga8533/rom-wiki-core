@@ -4,6 +4,7 @@ Service for updating Pokemon held item data.
 
 import re
 
+from rom_wiki_core.utils.core.config_registry import get_config
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.services.base_service import BaseService
@@ -79,7 +80,8 @@ class PokemonItemService(BaseService):
             if item_id not in pokemon_data.held_items:
                 pokemon_data.held_items[item_id] = {}
 
-            pokemon_data.held_items[item_id][VERSION_GROUP] = rarity
+            config = get_config()
+            pokemon_data.held_items[item_id][config.version_group] = rarity
 
             # Record change
             new_held_items = list(pokemon_data.held_items.keys())

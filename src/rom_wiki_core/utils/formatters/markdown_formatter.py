@@ -7,6 +7,7 @@ like Pokemon displays with sprites and links.
 
 import re
 
+from rom_wiki_core.utils.core.config_registry import get_config
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.data.constants import (
     TYPE_CATEGORY_COLORS,
@@ -148,6 +149,7 @@ def format_pokemon(
     is_linked: bool = True,
     is_named: bool = False,
     relative_path: str = "..",
+    config = None,
 ) -> str:
     """Format a Pokemon with its sprite and name.
 
@@ -158,14 +160,15 @@ def format_pokemon(
         is_linked (bool, optional): Whether to link the name to its Pokedex entry. Defaults to True.
         is_named (bool, optional): Whether to show the Pokemon name as text (when not linked). Defaults to False.
         relative_path (str, optional): Path to docs root.
+        config: WikiConfig instance with pokedb_sprite_version setting
 
     Returns:
         str: Formatted markdown string for the Pokemon
 
     Example::
-        >>> format_pokemon("bulbasaur", True, True, True, False, PARSER_DEX_RELATIVE_PATH)
+        >>> format_pokemon("bulbasaur", True, True, True, False, PARSER_DEX_RELATIVE_PATH, config)
         '![bulbasaur](sprite_url){ .sprite }<br>[Bulbasaur](../pokedex/pokemon/bulbasaur.md)'
-        >>> format_pokemon("charmander", False, False, False, True)
+        >>> format_pokemon("charmander", False, False, False, True, config=config)
         'Charmander'
     """
     # Try to load Pokemon data
@@ -185,7 +188,9 @@ def format_pokemon(
 
     # Add sprite image if requested
     if has_sprite:
-        sprite_url = get_pokemon_sprite(pokemon_data)
+        # Use provided config or fall back to global config
+        active_config = config if config is not None else get_config()
+        sprite_url = get_pokemon_sprite(pokemon_data, active_config)
         parts.append(f"![{pokemon_id}]({sprite_url}){{ .sprite }}")
 
     # Add linked or plain name
@@ -321,6 +326,7 @@ def format_pokemon_card_grid(
     pokemon: list[str | Pokemon],
     relative_path: str = "../pokemon",
     extra_info: list[str] | None = None,
+    config = None,
 ) -> str:
     """Format a list of Pokemon into a markdown grid.
 
@@ -328,6 +334,7 @@ def format_pokemon_card_grid(
         pokemon (list[str | Pokemon]): A list of Pokemon names or objects to include in the grid.
         relative_path (str, optional): The relative path to the Pokemon documentation. Defaults to "../pokemon".
         extra_info (list[str] | None, optional): Additional information to include for each Pokemon. Defaults to None.
+        config: WikiConfig instance with pokedb_sprite_version setting
 
     Returns:
         str: The formatted markdown grid for the Pokemon.
@@ -356,7 +363,9 @@ def format_pokemon_card_grid(
         card = ""
 
         # Sprite with link
-        sprite_url = get_pokemon_sprite(pokemon_data)
+        # Use provided config or fall back to global config
+        active_config = config if config is not None else get_config()
+        sprite_url = get_pokemon_sprite(pokemon_data, active_config)
         card += f"-\t[![{display_name}]({sprite_url}){{: .pokemon-sprite-img }}]({link})"
 
         card += "\n\n\t***\n\n"

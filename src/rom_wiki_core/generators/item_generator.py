@@ -2,7 +2,7 @@
 Generator for item markdown pages.
 
 This generator creates comprehensive item documentation pages with data
-from the configured version group (see config.VERSION_GROUP).
+from the configured version group (see WikiConfig.version_group).
 
 This generator:
 1. Reads item data from data/pokedb/parsed/item/
@@ -36,15 +36,16 @@ class ItemGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
         """Initialize the Item page generator.
 
         Args:
+            config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
         """
         # Initialize base generator
-        super().__init__(output_dir=output_dir, project_root=project_root)
+        super().__init__(config=config, output_dir=output_dir, project_root=project_root)
 
         self.category = "items"
         self.subcategory_order = [
@@ -94,7 +95,7 @@ class ItemGenerator(BaseGenerator):
 
                 # Build entry with rates for all configured game versions
                 entry: dict[str, Any] = {"pokemon": pokemon}
-                for version in POKEDB_GAME_VERSIONS:
+                for version in self.config.pokedb_game_versions:
                     entry[version] = rates.get(version, 0)
 
                 item_cache[item_name].append(entry)
@@ -240,7 +241,7 @@ class ItemGenerator(BaseGenerator):
 
             # Build row with all game version rates
             row = [link]
-            for version in POKEDB_GAME_VERSIONS:
+            for version in self.config.pokedb_game_versions:
                 rate = entry.get(version, 0)
                 rate_str = f"{rate}%" if rate else "—"
                 row.append(rate_str)
@@ -248,7 +249,7 @@ class ItemGenerator(BaseGenerator):
             rows.append(row)
 
         # Build headers for game versions
-        version_headers = [format_display_name(v) for v in POKEDB_GAME_VERSIONS]
+        version_headers = [format_display_name(v) for v in self.config.pokedb_game_versions]
 
         # Use standardized table utility with dynamic headers
         headers = ["Pokémon"] + version_headers
@@ -271,7 +272,7 @@ class ItemGenerator(BaseGenerator):
         # Full effect
         if item.effect:
             # Try to get version-specific effect, fallback to first available
-            effect_text = getattr(item.effect, VERSION_GROUP, None)
+            effect_text = getattr(item.effect, self.config.version_group, None)
 
             if effect_text:
                 md += f'!!! info "Description"\n\n'
@@ -351,7 +352,7 @@ class ItemGenerator(BaseGenerator):
         md += f"\t\t\t<br/>\n"
 
         # Flavor Text
-        flavor_text = getattr(item.flavor_text, VERSION_GROUP, "*No flavor text available.*")
+        flavor_text = getattr(item.flavor_text, self.config.version_group, "*No flavor text available.*")
         md += f"\t\t\t<span markdown>**Flavor Text:** {flavor_text}</span>\n"
 
         md += f"\t\t</div>\n"

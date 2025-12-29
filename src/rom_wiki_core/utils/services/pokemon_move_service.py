@@ -2,6 +2,7 @@
 Service for updating Pokemon move-related data (level-up moves, TMs/HMs).
 """
 
+from rom_wiki_core.utils.core.config_registry import get_config
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.data.models import MoveLearn
@@ -42,6 +43,7 @@ class PokemonMoveService(BaseService):
                 return False
 
             # Build new level_up moves list as MoveLearn objects
+            config = get_config()
             new_levelup_moves = []
             for level, move_name in moves:
                 move_id = name_to_id(move_name)
@@ -56,7 +58,7 @@ class PokemonMoveService(BaseService):
                 new_move = MoveLearn(
                     name=move_id,
                     level_learned_at=level,
-                    version_groups=[VERSION_GROUP],
+                    version_groups=[config.version_group],
                 )
                 new_levelup_moves.append(new_move)
 
@@ -151,14 +153,16 @@ class PokemonMoveService(BaseService):
 
                 if existing_move:
                     # Update version groups if needed
-                    if VERSION_GROUP not in existing_move.version_groups:
-                        existing_move.version_groups.append(VERSION_GROUP)
+                    config = get_config()
+                    if config.version_group not in existing_move.version_groups:
+                        existing_move.version_groups.append(config.version_group)
                 else:
                     # Add new machine move as a MoveLearn object
+                    config = get_config()
                     new_move = MoveLearn(
                         name=move_id,
                         level_learned_at=0,
-                        version_groups=[VERSION_GROUP],
+                        version_groups=[config.version_group],
                     )
                     pokemon_data.moves.machine.append(new_move)
                     added_moves.append(move_id)
