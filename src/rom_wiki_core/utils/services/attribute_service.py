@@ -211,11 +211,11 @@ class AttributeService(BaseService):
         Returns:
             bool: True if the abilities were updated successfully, False otherwise.
         """
-        # Parse: "ability1 / ability2 / hidden_ability"
+        # Parse: "ability1 / ability2 / hidden_ability" (1-3 abilities accepted)
         abilities = [name_to_id(a.strip()) for a in value.split(" / ")]
 
-        if len(abilities) != 3:
-            logger.warning(f"Invalid ability format (expected 3 abilities): {value}")
+        if len(abilities) < 1 or len(abilities) > 3:
+            logger.warning(f"Invalid ability format (expected 1-3 abilities): {value}")
             return False
 
         # Capture old value for change tracking
@@ -242,7 +242,9 @@ class AttributeService(BaseService):
                     f"Ability '{ability}' not found in database. Skipping validation but saving anyway."
                 )
 
-            new_abilities.append({"name": ability, "is_hidden": i == 2, "slot": i + 1})
+            # Only the 3rd ability is hidden (when there are 3 abilities)
+            is_hidden = (i == 2 and len(abilities) == 3)
+            new_abilities.append({"name": ability, "is_hidden": is_hidden, "slot": i + 1})
 
         # Update abilities
         pokemon_data.abilities = new_abilities

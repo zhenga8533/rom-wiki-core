@@ -448,7 +448,8 @@ class LocationGenerator(BaseGenerator):
 
             # Attributes column
             row += f"**Level:** {pokemon['level']}"
-            row += f"<br>**Ability:** {format_ability(pokemon['ability'], relative_path=self.config.generator_dex_relative_path)}"
+            if pokemon.get("ability"):
+                row += f"<br>**Ability:** {format_ability(pokemon['ability'], relative_path=self.config.generator_dex_relative_path)}"
             if pokemon.get("item"):
                 row += f"<br>**Item:** {format_item(pokemon['item'], relative_path=self.config.generator_dex_relative_path)}"
             row += " | "
