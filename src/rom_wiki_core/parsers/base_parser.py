@@ -11,8 +11,6 @@ from typing import Optional
 from rom_wiki_core.utils.core.config_registry import get_config, set_config
 from rom_wiki_core.utils.core.logger import get_logger
 
-logger = get_logger(__name__)
-
 
 class BaseParser(ABC):
     """
@@ -61,6 +59,9 @@ class BaseParser(ABC):
         else:
             self.config = get_config()
 
+        # Set up logger for this parser instance
+        self.logger = get_logger(self.__class__.__module__)
+
         # Set up paths
         if project_root is None:
             self.project_root = self.config.project_root
@@ -73,7 +74,7 @@ class BaseParser(ABC):
         self.output_dir = self.project_root / output_dir
         self.output_path = self.output_dir / (self.output_file + ".md")
 
-        logger.debug(
+        self.logger.debug(
             f"Initializing parser: {self.__class__.__name__}",
             extra={
                 "input_file": str(self.input_path),
@@ -83,12 +84,12 @@ class BaseParser(ABC):
 
         # Validate input file exists
         if not self.input_path.exists():
-            logger.error(f"Input file not found: {self.input_path}")
+            self.logger.error(f"Input file not found: {self.input_path}")
             raise FileNotFoundError(f"Input file not found: {self.input_path}")
 
         # Ensure output directories exist
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Output directory ready: {self.output_dir}")
+        self.logger.debug(f"Output directory ready: {self.output_dir}")
 
     def _section_to_method_name(self, section: str) -> str:
         """Convert a section name to a normalized handler method name.
@@ -144,7 +145,7 @@ class BaseParser(ABC):
                 method = getattr(self, method_name, None)
 
                 if method is None:
-                    logger.warning(
+                    self.logger.warning(
                         f"No handler for section '{self._current_section}', using parse_default"
                     )
                     self.parse_default(line)
@@ -195,13 +196,13 @@ class BaseParser(ABC):
         """
         skip_patterns = [r"^=+$"]
 
-        logger.debug(f"Reading input file: {self.input_path}")
+        self.logger.debug(f"Reading input file: {self.input_path}")
         try:
             # Read lines from the input file
             with self.input_path.open("r", encoding="utf-8") as f:
                 lines = [line.rstrip() for line in f]
         except (OSError, IOError) as e:
-            logger.error(f"Error reading input file {self.input_path}: {e}", exc_info=True)
+            self.logger.error(f"Error reading input file {self.input_path}: {e}", exc_info=True)
             raise
 
         # Apply skip patterns
@@ -211,7 +212,7 @@ class BaseParser(ABC):
             if not any(re.fullmatch(pattern, line) for pattern in skip_patterns)
         ]
 
-        logger.debug(f"Read {len(lines)} lines, filtered to {len(filtered_lines)} lines")
+        self.logger.debug(f"Read {len(lines)} lines, filtered to {len(filtered_lines)} lines")
         return filtered_lines
 
     def save_markdown(self) -> Path:
@@ -221,7 +222,7 @@ class BaseParser(ABC):
             Path: Path to the saved markdown file
         """
         self.output_path.write_text(self._markdown, encoding="utf-8")
-        logger.info(f"Saved markdown to {self.output_path}")
+        self.logger.info(f"Saved markdown to {self.output_path}")
         return self.output_path
 
     def run(self) -> Optional[Path]:
@@ -243,6 +244,6 @@ class BaseParser(ABC):
 
     def finalize(self) -> None:
         """Finalize the parser, performing any necessary cleanup."""
-        logger.debug(f"Finalizing parser: {self.__class__.__name__}")
+        self.logger.debug(f"Finalizing parser: {self.__class__.__name__}")
         # Default implementation does nothing
         pass

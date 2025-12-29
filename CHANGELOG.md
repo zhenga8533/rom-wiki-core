@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - Base Parser
+
+### Added
+
+- **BaseParser Class**: New abstract base class for documentation file parsing
+  - Section-based parsing with automatic method routing
+  - Markdown generation from text documentation files
+  - Configurable input/output paths using WikiConfig
+  - Unicode normalization for section names (e.g., "Pokémon" → "pokemon")
+  - Instance-level `self.logger` for child classes to use
+  - `parse()` method for automatic section detection and routing
+  - `read_input_lines()` with skip pattern filtering
+  - `save_markdown()` for output file generation
+  - `peek_line()` utility for lookahead parsing
+  - `run()` workflow method for complete parsing pipeline
+  - Module available via `from rom_wiki_core import BaseParser`
+- **LocationParser Class**: Specialized parser for location data management
+  - Extends BaseParser with location-specific functionality
+  - Load/merge/save location data to JSON files
+  - Support for nested sublocations (e.g., "City - Building/Floor")
+  - Duplicate prevention tracking across parse runs
+  - Safe concurrent updates to location files
+  - `_initialize_location_data()` for location setup
+  - `_clear_location_data_on_first_encounter()` for idempotent parsing
+  - Automatic JSON file persistence in `finalize()`
+  - Module available via `from rom_wiki_core import LocationParser`
+
+### Changed
+
+- **Parser Config Pattern**: BaseParser follows same config registry pattern as BaseGenerator
+  - Accepts optional `config` parameter (first argument after `self`)
+  - Automatically registers config globally when provided
+  - Falls back to global config if not provided
+  - Uses `config.project_root` for path resolution
+
+### Documentation
+
+- **CONTRIBUTING.md**: Added comprehensive parser guidelines
+  - How to create custom parsers extending BaseParser
+  - Config registry usage in parsers
+  - Section-based parsing patterns
+  - Required method signatures and patterns
+
 ## [1.0.1] - Fixed Release
 
 ### Fixed
@@ -72,6 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging system with rotating file handlers
 - Service layer for data manipulation
 
+[1.0.2]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.2
 [1.0.1]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.1
 [1.0.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.0
 [0.1.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v0.1.0
