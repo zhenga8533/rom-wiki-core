@@ -221,71 +221,77 @@ def setup_logger(
     # Ensure log directory exists (even if returning early)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Avoid adding handlers multiple times
-    if logger.hasHandlers():
+    # Check if logger already has BOTH console AND file handlers
+    has_console = any(isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler) for h in logger.handlers)
+    has_file = any(isinstance(h, logging.FileHandler) for h in logger.handlers)
+
+    # Only skip if logger has both types of handlers
+    if has_console and has_file:
         return logger
 
     # Set log level
     log_level = getattr(logging, level or LOG_LEVEL, logging.INFO)
     logger.setLevel(log_level)
 
-    # Console handler with optional colored output
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(log_level)
+    # Add console handler if missing
+    if not has_console:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(log_level)
 
-    if LOG_FORMAT_JSON:
-        console_formatter = JSONFormatter()
-    else:
-        if CONSOLE_COLORS:
-            console_formatter = ColoredConsoleFormatter(
-                fmt="%(levelname)s - %(name)s - %(message)s",
-                datefmt="%H:%M:%S",
-            )
+        if LOG_FORMAT_JSON:
+            console_formatter = JSONFormatter()
         else:
-            console_formatter = logging.Formatter(
-                fmt="%(levelname)s - %(name)s - %(message)s",
-                datefmt="%H:%M:%S",
-            )
-    console_handler.setFormatter(console_formatter)
-    logger.addHandler(console_handler)
+            if CONSOLE_COLORS:
+                console_formatter = ColoredConsoleFormatter(
+                    fmt="%(levelname)s - %(name)s - %(message)s",
+                    datefmt="%H:%M:%S",
+                )
+            else:
+                console_formatter = logging.Formatter(
+                    fmt="%(levelname)s - %(name)s - %(message)s",
+                    datefmt="%H:%M:%S",
+                )
+        console_handler.setFormatter(console_formatter)
+        logger.addHandler(console_handler)
 
-    # File handler with rotation
-    if log_file is None:
-        # Use module-specific log file with directory structure
-        # Remove 'src.' prefix if present and create subdirectories
-        module_path = name
-        if module_path.startswith("src."):
-            module_path = module_path[4:]  # Remove 'src.' prefix
+    # Add file handler if missing
+    if not has_file:
+        if log_file is None:
+            # Use module-specific log file with directory structure
+            # Remove 'src.' prefix if present and create subdirectories
+            module_path = name
+            if module_path.startswith("src."):
+                module_path = module_path[4:]  # Remove 'src.' prefix
 
-        # Split into directory components and filename
-        parts = module_path.split(".")
-        if len(parts) > 1:
-            # Create subdirectories for nested modules
-            subdir = LOG_DIR / Path(*parts[:-1])
-            subdir.mkdir(parents=True, exist_ok=True)
-            log_file = str(Path(*parts[:-1]) / f"{parts[-1]}.log")
-        else:
-            log_file = f"{module_path}.log"
+            # Split into directory components and filename
+            parts = module_path.split(".")
+            if len(parts) > 1:
+                # Create subdirectories for nested modules
+                subdir = LOG_DIR / Path(*parts[:-1])
+                subdir.mkdir(parents=True, exist_ok=True)
+                log_file = str(Path(*parts[:-1]) / f"{parts[-1]}.log")
+            else:
+                log_file = f"{module_path}.log"
 
-    file_path = LOG_DIR / log_file
+        file_path = LOG_DIR / log_file
 
-    file_handler = RotatingFileHandler(
-        file_path,
-        maxBytes=MAX_LOG_SIZE,
-        backupCount=BACKUP_COUNT,
-        encoding="utf-8",
-    )
-    file_handler.setLevel(log_level)
-
-    if LOG_FORMAT_JSON:
-        file_formatter = JSONFormatter()
-    else:
-        file_formatter = logging.Formatter(
-            fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S",
+        file_handler = RotatingFileHandler(
+            file_path,
+            maxBytes=MAX_LOG_SIZE,
+            backupCount=BACKUP_COUNT,
+            encoding="utf-8",
         )
-    file_handler.setFormatter(file_formatter)
-    logger.addHandler(file_handler)
+        file_handler.setLevel(log_level)
+
+        if LOG_FORMAT_JSON:
+            file_formatter = JSONFormatter()
+        else:
+            file_formatter = logging.Formatter(
+                fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
 
     return logger
 
