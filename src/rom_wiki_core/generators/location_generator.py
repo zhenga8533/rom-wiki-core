@@ -389,8 +389,11 @@ class LocationGenerator(BaseGenerator):
         markdown = ""
 
         for trainer in trainers:
-            # Trainer header
-            markdown += f"{trainer['name']}\n\n"
+            # Trainer header with optional team variation
+            trainer_name = trainer['name']
+            if trainer.get('team_variation'):
+                trainer_name += f" ({trainer['team_variation']})"
+            markdown += f"{trainer_name}\n\n"
 
             # Trainer metadata
             if trainer.get("reward"):

@@ -31,6 +31,7 @@ class LocationParser(BaseParser):
         input_file: str = "",
         output_dir: str = "docs",
         project_root: Optional[Path] = None,
+        location_separators: Optional[list[str]] = None,
     ):
         """Initialize the Location parser.
 
@@ -39,6 +40,7 @@ class LocationParser(BaseParser):
             input_file (str): Path to the input file (relative to data/documentation/)
             output_dir (str, optional): Directory where markdown files will be generated (default: docs)
             project_root (Optional[Path], optional): The root directory of the project. If None, uses config.project_root
+            location_separators (Optional[list[str]], optional): List of separators to use for parsing location/sublocation. Defaults to [" - "].
         """
         super().__init__(
             config=config,
@@ -52,6 +54,7 @@ class LocationParser(BaseParser):
         self._current_location = ""
         self._current_sublocation = ""
         self._location_data_dir = self.project_root / "data" / "locations"
+        self._location_separators = location_separators or [" - "]
 
         # Tracking sets for preventing duplicates across parse runs
         # Subclasses can register their own tracking keys
@@ -181,6 +184,7 @@ class LocationParser(BaseParser):
         Handles patterns like:
         - "Route 1" -> ("Route 1", None)
         - "Castelia City - Battle Company" -> ("Castelia City", "Battle Company")
+        - "Eterna Forest ~ Outside" -> ("Eterna Forest", "Outside") (if " ~ " is in separators)
 
         Args:
             location_raw (str): The raw location string.
@@ -188,9 +192,11 @@ class LocationParser(BaseParser):
         Returns:
             tuple[str, Optional[str]]: (parent_location, sublocation_name)
         """
-        if " - " in location_raw:
-            parts = location_raw.split(" - ", 1)
-            return parts[0], parts[1]
+        # Try each separator in order
+        for separator in self._location_separators:
+            if separator in location_raw:
+                parts = location_raw.split(separator, 1)
+                return parts[0], parts[1]
         return location_raw, None
 
     def _get_location_file_path(self, location: str) -> Path:
