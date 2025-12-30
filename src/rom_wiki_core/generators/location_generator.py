@@ -458,8 +458,13 @@ class LocationGenerator(BaseGenerator):
                     markdown += f"{trainer_name}\n\n"
                     markdown += self._build_trainer_metadata(t)
 
+                    # Handle team variations (Left side/Right side for double battles)
+                    if t.get("team_variations"):
+                        for variation_name, variation in t["team_variations"].items():
+                            markdown += f"{variation_name}\n\n"
+                            markdown += self._build_team_table(variation["team"])
                     # Handle starter variations (legacy format)
-                    if t.get("starter_variations"):
+                    elif t.get("starter_variations"):
                         for starter, variation in t["starter_variations"].items():
                             markdown += f'=== "{starter}"\n\n'
                             markdown += self._build_team_table(variation["team"], indent=1)
