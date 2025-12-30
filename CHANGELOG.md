@@ -5,6 +5,49 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-12-30
+
+### Added
+
+- **Config Validation**: Comprehensive validation for WikiConfig fields and values
+  - Raises clear errors for misconfiguration
+  - Improved error messages for invalid settings
+- **Trainer Team Variations**: Support for double battle team variations in markdown
+  - LocationGenerator handles 'team_variations' for Left/Right side team listings
+  - Trainers with same name and team variations now grouped using tabs
+  - Shared metadata displayed once for trainer variations
+  - Trainer metadata formatting extracted into `_build_trainer_metadata()` method
+- **Configurable Location Index Columns**: New configuration option for location index table
+  - `index_columns` parameter in LocationGenerator
+  - Allows customization of which columns to display
+  - Defaults to all columns if not specified
+- **Custom Location Separators**: LocationParser supports custom separators
+  - More flexible location/sublocation parsing
+  - Configurable separator characters
+- **Item Display Cases**: Added display cases for new abbreviations
+  - 'gs' → 'GS'
+  - 'ss' → 'S.S.'
+
+### Changed
+
+- **PokeDBInitializer Improvements**: Enhanced robustness and developer experience
+  - Improved error handling and logging
+  - Better standalone execution example
+- **Error Handling**: More informative error logging in BaseGenerator
+  - Handles various entry types
+  - Better error messages for debugging
+- **Moves Rendering**: LocationGenerator checks for moves presence before rendering
+  - Prevents errors when moves list is missing or empty
+- **Ability Handling**: Enhanced attribute service flexibility
+  - Accepts 1-3 abilities
+  - Correct hidden ability logic
+  - Improved validation and logging
+  - LocationGenerator only displays ability if present
+
+### Removed
+
+- **settings.local.json**: Removed local settings file from repository
+
 ## [1.0.2] - Base Parser
 
 ### Added
@@ -115,6 +158,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging system with rotating file handlers
 - Service layer for data manipulation
 
+[1.0.3]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.3
 [1.0.2]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.2
 [1.0.1]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.1
 [1.0.0]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.0
