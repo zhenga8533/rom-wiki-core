@@ -388,39 +388,85 @@ class LocationGenerator(BaseGenerator):
         """
         markdown = ""
 
-        for trainer in trainers:
-            # Trainer header with optional team variation
+        # Group trainers by name while preserving order
+        processed_names = set()
+
+        i = 0
+        while i < len(trainers):
+            trainer = trainers[i]
             trainer_name = trainer['name']
-            if trainer.get('team_variation'):
-                trainer_name += f" ({trainer['team_variation']})"
-            markdown += f"{trainer_name}\n\n"
 
-            # Trainer metadata
-            if trainer.get("reward"):
-                markdown += "**Reward:** "
-                markdown += ", ".join(
-                    format_item(item, relative_path=self.config.generator_dex_relative_path)
-                    for item in trainer["reward"]
-                )
-                markdown += "\n\n"
+            # Skip if we've already processed this trainer name
+            if trainer_name in processed_names:
+                i += 1
+                continue
 
-            if trainer.get("mode"):
-                markdown += f"**Mode:** {trainer['mode']}\n\n"
+            # Find all trainers with the same name
+            same_name_trainers = [t for t in trainers if t['name'] == trainer_name]
 
-            if trainer.get("battle_type"):
-                markdown += f"**Battle Type:** {trainer['battle_type']}\n\n"
+            # Check if they all have team_variation
+            has_variations = all(t.get('team_variation') for t in same_name_trainers)
 
-            if trainer.get("notes"):
-                markdown += f"{trainer['notes']}\n\n"
+            if has_variations and len(same_name_trainers) > 1:
+                # Use tabs for multiple variations
+                markdown += f"{trainer_name}\n\n"
 
-            # Handle starter variations
-            if trainer.get("starter_variations"):
-                for starter, variation in trainer["starter_variations"].items():
-                    markdown += f'=== "{starter}"\n\n'
-                    markdown += self._build_team_table(variation["team"], indent=1)
+                # Trainer metadata (use first trainer's metadata)
+                first_trainer = same_name_trainers[0]
+                markdown += self._build_trainer_metadata(first_trainer)
+
+                # Add tabs for each variation
+                for t in same_name_trainers:
+                    variation = t['team_variation']
+                    markdown += f'=== "{variation}"\n\n'
+                    markdown += self._build_team_table(t["team"], indent=1)
             else:
-                # Regular team
-                markdown += self._build_team_table(trainer["team"])
+                # Regular trainer(s) without variations
+                for t in same_name_trainers:
+                    markdown += f"{trainer_name}\n\n"
+                    markdown += self._build_trainer_metadata(t)
+
+                    # Handle starter variations (legacy format)
+                    if t.get("starter_variations"):
+                        for starter, variation in t["starter_variations"].items():
+                            markdown += f'=== "{starter}"\n\n'
+                            markdown += self._build_team_table(variation["team"], indent=1)
+                    else:
+                        # Regular team
+                        markdown += self._build_team_table(t["team"])
+
+            processed_names.add(trainer_name)
+            i += 1
+
+        return markdown
+
+    def _build_trainer_metadata(self, trainer: Dict[str, Any]) -> str:
+        """Build metadata section for a trainer.
+
+        Args:
+            trainer (Dict[str, Any]): Trainer data.
+
+        Returns:
+            str: Markdown for trainer metadata.
+        """
+        markdown = ""
+
+        if trainer.get("reward"):
+            markdown += "**Reward:** "
+            markdown += ", ".join(
+                format_item(item, relative_path=self.config.generator_dex_relative_path)
+                for item in trainer["reward"]
+            )
+            markdown += "\n\n"
+
+        if trainer.get("mode"):
+            markdown += f"**Mode:** {trainer['mode']}\n\n"
+
+        if trainer.get("battle_type"):
+            markdown += f"**Battle Type:** {trainer['battle_type']}\n\n"
+
+        if trainer.get("notes"):
+            markdown += f"{trainer['notes']}\n\n"
 
         return markdown
 
