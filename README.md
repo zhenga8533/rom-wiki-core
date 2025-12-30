@@ -247,6 +247,7 @@ result = format_pokemon("pikachu")  # Uses global config
 **When is config set?**
 
 1. **Automatically** when you pass config to a generator:
+
    ```python
    generator = PokemonGenerator(config=config)  # Config auto-registered
    ```
@@ -369,6 +370,7 @@ formatted = format_pokemon("pikachu", relative_path="..", config=CONFIG)
 Contributions are welcome! This library is designed to support any Pokemon ROM hack wiki project.
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) for:
+
 - Development setup
 - Code style guidelines
 - Config management best practices

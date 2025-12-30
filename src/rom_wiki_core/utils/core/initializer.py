@@ -58,20 +58,45 @@ class PokeDBInitializer:
         zip_url = f"https://github.com/{self.repo_owner}/{self.repo_name}/archive/refs/heads/{self.branch}.zip"
         logger.info(f"Downloading repository from {zip_url}...")
 
-        response = requests.get(zip_url, stream=True, timeout=30)
-        response.raise_for_status()
+        try:
+            # Import version to keep User-Agent in sync with package version
+            from rom_wiki_core import __version__
+
+            response = requests.get(
+                zip_url,
+                stream=True,
+                timeout=30,
+                headers={"User-Agent": f"rom-wiki-core/{__version__}"},
+                verify=True,
+            )
+            response.raise_for_status()
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"HTTP error downloading repository: {e.response.status_code}", exc_info=True)
+            raise
+        except requests.exceptions.ConnectionError as e:
+            logger.error(f"Connection error downloading repository: {e}", exc_info=True)
+            raise
+        except requests.exceptions.Timeout as e:
+            logger.error(f"Timeout downloading repository after 30 seconds: {e}", exc_info=True)
+            raise
 
         temp_extract_path = self.data_dir.parent / "temp_pokedb"
         if temp_extract_path.exists():
+            logger.debug(f"Removing existing temporary directory: {temp_extract_path}")
             shutil.rmtree(temp_extract_path)
 
         logger.info(f"Extracting to temporary directory '{temp_extract_path}'...")
-        with zipfile.ZipFile(io.BytesIO(response.content)) as z:
-            namelist = z.namelist()
-            if not namelist:
-                raise ValueError("Downloaded zip file is empty")
-            repo_root_dir_name = namelist[0].split("/")[0]
-            z.extractall(temp_extract_path)
+        try:
+            with zipfile.ZipFile(io.BytesIO(response.content)) as z:
+                namelist = z.namelist()
+                if not namelist:
+                    raise ValueError("Downloaded zip file is empty")
+                repo_root_dir_name = namelist[0].split("/")[0]
+                logger.debug(f"Extracting {len(namelist)} files from archive")
+                z.extractall(temp_extract_path)
+        except zipfile.BadZipFile as e:
+            logger.error(f"Invalid zip file downloaded: {e}", exc_info=True)
+            raise ValueError(f"Downloaded file is not a valid zip archive: {e}") from e
 
         return temp_extract_path / repo_root_dir_name
 
@@ -154,6 +179,7 @@ class PokeDBInitializer:
                 source_path = extracted_repo_path / gen
                 destination_path = self.data_dir / gen
                 if source_path.exists():
+                    logger.debug(f"Copying generation '{gen}' from {source_path} to {destination_path}")
                     shutil.copytree(str(source_path), str(destination_path))
                 else:
                     logger.warning(f"Generation folder '{gen}' not found in repository.")
@@ -186,5 +212,35 @@ class PokeDBInitializer:
 
 
 if __name__ == "__main__":
-    initializer = PokeDBInitializer()
-    initializer.run()
+    import sys
+    from pathlib import Path
+
+    from rom_wiki_core.config import WikiConfig
+
+    # This is a minimal example for standalone execution
+    # In production, you should create a proper WikiConfig with your settings
+    logger.warning(
+        "Running PokeDBInitializer standalone with default configuration. "
+        "For production use, create a proper WikiConfig instance."
+    )
+
+    try:
+        # Create a minimal config for demonstration
+        default_config = WikiConfig(
+            project_root=Path.cwd(),
+            game_title="Example ROM Hack",
+            version_group="black_2_white_2",
+            version_group_friendly="Black 2 & White 2",
+            pokedb_generations=["gen5"],
+            pokedb_version_groups=["black_2_white_2"],
+            pokedb_game_versions=["black_2", "white_2"],
+            pokedb_sprite_version="black_white",
+        )
+
+        initializer = PokeDBInitializer(default_config)
+        initializer.run()
+        logger.info("PokeDB initialization completed successfully")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize PokeDB: {e}", exc_info=True)
+        sys.exit(1)
