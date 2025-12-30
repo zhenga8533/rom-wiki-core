@@ -82,6 +82,9 @@ class WikiConfig:
     generator_dex_relative_path: str = "../.."
     generator_index_relative_path: str = ".."
 
+    # Location generator configuration
+    location_index_columns: list[str] | None = None  # None = all columns shown
+
     def __post_init__(self):
         """Set default paths based on project_root if not provided."""
         if not self.pokedb_data_dir:

@@ -44,6 +44,7 @@ class LocationGenerator(BaseGenerator):
         output_dir: str = "docs/locations",
         input_dir: str = "data/locations",
         project_root: Optional[Path] = None,
+        index_columns: Optional[List[str]] = None,
     ):
         """Initialize the Location page generator.
 
@@ -52,6 +53,9 @@ class LocationGenerator(BaseGenerator):
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/locations".
             input_dir (str, optional): Directory where location JSON files are stored. Defaults to "data/locations".
             project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
+            index_columns (Optional[List[str]], optional): List of columns to show in the index table.
+                Available columns: "Location", "Trainers", "Wild Encounters", "Hidden Grotto".
+                Defaults to all columns. "Location" is always included.
         """
         # Initialize base generator
         super().__init__(config=config, output_dir=output_dir, project_root=project_root)
@@ -59,14 +63,35 @@ class LocationGenerator(BaseGenerator):
         # Set category for BaseGenerator
         self.category = "locations"
 
-        # Configure index table
-        self.index_table_headers = [
-            "Location",
-            "Trainers",
-            "Wild Encounters",
-            "Hidden Grotto",
-        ]
-        self.index_table_alignments = ["left", "center", "center", "center"]
+        # All available columns
+        all_columns = {
+            "Location": "left",
+            "Trainers": "center",
+            "Wild Encounters": "center",
+            "Hidden Grotto": "center",
+        }
+
+        # Determine which columns to show
+        # Priority: parameter > config > default (all columns)
+        if index_columns is None and config and hasattr(config, 'location_index_columns'):
+            index_columns = config.location_index_columns
+
+        if index_columns is None:
+            # Show all columns by default
+            self.index_columns = list(all_columns.keys())
+        else:
+            # Always include Location column
+            if "Location" not in index_columns:
+                index_columns = ["Location"] + index_columns
+            self.index_columns = index_columns
+
+        # Configure index table headers and alignments based on selected columns
+        self.index_table_headers = []
+        self.index_table_alignments = []
+        for col in self.index_columns:
+            if col in all_columns:
+                self.index_table_headers.append(col)
+                self.index_table_alignments.append(all_columns[col])
 
         # Set up input directory
         self.input_dir = self.project_root / input_dir
@@ -172,29 +197,36 @@ class LocationGenerator(BaseGenerator):
             entry (tuple[str, Dict[str, Any]]): Tuple of (filename_stem, location_data).
 
         Returns:
-            List[str]: List of formatted row values.
+            List[str]: List of formatted row values for enabled columns.
         """
         filename_stem, location_data = entry
         location_name = location_data.get("name", filename_stem)
         link = f"[{location_name}](data/{filename_stem}.md)"
 
-        # Count trainers (including sublocations)
-        trainer_count = self._count_trainers(location_data)
-        trainer_str = str(trainer_count) if trainer_count > 0 else "—"
+        # Build all possible column values
+        column_values = {
+            "Location": link,
+        }
 
-        # Check for wild encounters
-        has_wild = bool(location_data.get("wild_encounters"))
-        if not has_wild and location_data.get("sublocations"):
-            has_wild = self._has_wild_encounters_in_sublocations(location_data["sublocations"])
-        wild_str = "✓" if has_wild else "—"
+        # Only calculate values for columns that are enabled
+        if "Trainers" in self.index_columns:
+            trainer_count = self._count_trainers(location_data)
+            column_values["Trainers"] = str(trainer_count) if trainer_count > 0 else "—"
 
-        # Check for hidden grotto
-        has_grotto = bool(location_data.get("hidden_grotto"))
-        if not has_grotto and location_data.get("sublocations"):
-            has_grotto = self._has_hidden_grotto_in_sublocations(location_data["sublocations"])
-        grotto_str = "✓" if has_grotto else "—"
+        if "Wild Encounters" in self.index_columns:
+            has_wild = bool(location_data.get("wild_encounters"))
+            if not has_wild and location_data.get("sublocations"):
+                has_wild = self._has_wild_encounters_in_sublocations(location_data["sublocations"])
+            column_values["Wild Encounters"] = "✓" if has_wild else "—"
 
-        return [link, trainer_str, wild_str, grotto_str]
+        if "Hidden Grotto" in self.index_columns:
+            has_grotto = bool(location_data.get("hidden_grotto"))
+            if not has_grotto and location_data.get("sublocations"):
+                has_grotto = self._has_hidden_grotto_in_sublocations(location_data["sublocations"])
+            column_values["Hidden Grotto"] = "✓" if has_grotto else "—"
+
+        # Return values in the order of enabled columns
+        return [column_values[col] for col in self.index_columns if col in column_values]
 
     def generate_index(
         self,
