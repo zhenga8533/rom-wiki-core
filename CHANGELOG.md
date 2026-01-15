@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.4] - 2026-01-15
+
+### Added
+
+- **PEP 561 Support**: Added `py.typed` marker file for type checker compatibility
+- **Roman Numeral Formatting**: `format_display_name()` now automatically capitalizes valid Roman numerals (I, II, III, IV, etc.)
+
+### Changed
+
+- **Generator Config Parameter**: `config` is now a required parameter in all generators (previously optional)
+  - Simplifies initialization and ensures config is always available
+  - `project_root` defaults to `config.project_root` when not explicitly provided
+- **ROM Changes Display**: Changed from `!!! info` to `??? note` (collapsible admonition)
+- **Evolution Change Tracking**: Improved change records to show actual evolution method details
+  - Old: "Updated" → "Modified evolution method or target"
+  - New: "bulbasaur > ivysaur: level-up (level 16)" with full details
+  - Supports multiple changes per field for branching evolutions
+- **Item Formatting**: Items now wrapped in nowrap span to keep sprite and text on one line
+- **Pokemon Card Grid**: Fixed multi-line extra info formatting with proper indentation
+
+### Fixed
+
+- **Duplicate Change Detection**: `BaseService.record_change()` now checks both field AND old_value
+  - Allows tracking multiple changes for the same field (e.g., different evolution branches)
+  - Previously would overwrite changes for the same field regardless of old_value
+
 ## [1.0.3] - 2025-12-30
 
 ### Added
@@ -158,6 +184,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging system with rotating file handlers
 - Service layer for data manipulation
 
+[1.0.4]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.4
 [1.0.3]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.3
 [1.0.2]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.2
 [1.0.1]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.1
