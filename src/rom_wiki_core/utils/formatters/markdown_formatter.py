@@ -149,7 +149,7 @@ def format_pokemon(
     is_linked: bool = True,
     is_named: bool = False,
     relative_path: str = "..",
-    config = None,
+    config=None,
 ) -> str:
     """Format a Pokemon with its sprite and name.
 
@@ -276,7 +276,8 @@ def format_item(
     if move:
         md += f", {format_move(move, is_linked, relative_path)}"
 
-    return md
+    # Wrap in nowrap span to keep sprite and text on one line
+    return f'<span style="white-space: nowrap;">{md}</span>'
 
 
 def format_move(
@@ -326,7 +327,7 @@ def format_pokemon_card_grid(
     pokemon: list[str | Pokemon],
     relative_path: str = "../pokemon",
     extra_info: list[str] | None = None,
-    config = None,
+    config=None,
 ) -> str:
     """Format a list of Pokemon into a markdown grid.
 
@@ -377,7 +378,8 @@ def format_pokemon_card_grid(
         if extra_info:
             info = extra_info[idx] if idx < len(extra_info) else ""
             if info:
-                card += f"\n\n\t{info}"
+                info = "\n".join(f"\t{s}" if s else "" for s in info.split("\n"))
+                card += f"\n\n{info}"
 
         cards.append(card)
 

@@ -73,6 +73,12 @@ def format_display_name(
             flags=re.IGNORECASE,
         )
 
+    # Capitalize valid Roman numerals (canonical forms up to 3999)
+    roman_pattern = re.compile(
+        r"\bM{0,3}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})\b", re.IGNORECASE
+    )
+    formatted_name = roman_pattern.sub(lambda m: m.group(0).upper(), formatted_name)
+
     return formatted_name
 
 
