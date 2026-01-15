@@ -140,52 +140,6 @@ class MoveService(BaseService):
             return False
 
     @staticmethod
-    def update_move_type(move_name: str, new_type: str) -> bool:
-        """Update the type of an existing move in the parsed data folder.
-
-        Args:
-            move_name (str): Name of the move to modify
-            new_type (str): New type to set for the move
-
-        Returns:
-            bool: True if modified, False if error
-        """
-        # Normalize move name
-        move_id = name_to_id(move_name)
-        type_id = name_to_id(new_type)
-
-        try:
-            # Load the move using PokeDBLoader
-            move = PokeDBLoader.load_move(move_id)
-            if move is None:
-                return False
-
-            # Capture old value for change tracking
-            config = get_config()
-            old_type = getattr(move.type, config.version_group, "unknown")
-
-            # Update type for all version groups
-            for version_key in move.type.__slots__:
-                setattr(move.type, version_key, type_id)
-
-            # Record change
-            BaseService.record_change(
-                move,
-                field="Type",
-                old_value=old_type,
-                new_value=type_id,
-                source="move_service",
-            )
-
-            # Save using PokeDBLoader
-            PokeDBLoader.save_move(move_id, move)
-            logger.info(f"Changed type of move '{move_name}' to '{type_id}'")
-            return True
-        except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error changing type of move '{move_name}': {e}")
-            return False
-
-    @staticmethod
     def update_move_attribute(move_name: str, attribute: str, new_value: str) -> bool:
         """Update an attribute of an existing move in the parsed data folder.
 
