@@ -38,13 +38,15 @@ class AbilityGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(
+        self, config, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None
+    ):
         """Initialize the Ability page generator.
 
         Args:
             config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
-            project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
+            project_root (Optional[Path], optional): The root directory of the project. If None, uses config.project_root.
         """
         # Initialize base generator
         super().__init__(config=config, output_dir=output_dir, project_root=project_root)
@@ -189,7 +191,8 @@ class AbilityGenerator(BaseGenerator):
         # Full effect
         if ability.effect:
             # Try to get version-specific effect, fallback to first available
-            effect_text = getattr(ability.effect, self.config.version_group, None)
+            version_group = self.config.version_group
+            effect_text = getattr(ability.effect, version_group, None)
 
             if effect_text:
                 md += f'!!! info "Full Description"\n\n'
@@ -217,10 +220,12 @@ class AbilityGenerator(BaseGenerator):
         """
         md = "## :material-book-open: In-Game Description\n\n"
 
-        flavor_text = getattr(ability.flavor_text, self.config.version_group, None)
+        version_group = self.config.version_group
+        flavor_text = getattr(ability.flavor_text, version_group, None)
 
         if flavor_text:
-            md += f'!!! quote "{self.config.version_group_friendly}"\n\n'
+            friendly_name = self.config.version_group_friendly
+            md += f'!!! quote "{friendly_name}"\n\n'
             md += f"    {flavor_text}\n\n"
         else:
             md += "*No in-game description available.*\n\n"

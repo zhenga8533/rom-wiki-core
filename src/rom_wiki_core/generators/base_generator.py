@@ -4,9 +4,12 @@ Base generator class for creating documentation pages from database content.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from rom_wiki_core.utils.core.config_registry import set_config
+
+if TYPE_CHECKING:
+    from rom_wiki_core.config import WikiConfig
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.formatters.table_formatter import create_table
 from rom_wiki_core.utils.formatters.yaml_formatter import update_pokedex_subsection
@@ -33,43 +36,31 @@ class BaseGenerator(ABC):
 
     def __init__(
         self,
-        config=None,
+        config: "WikiConfig",
         output_dir: str = "docs",
         project_root: Optional[Path] = None,
     ):
         """Initialize the base generator.
 
         Args:
-            config: WikiConfig instance with project settings. If not provided, will try to use global config.
+            config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs".
-            project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
+            project_root (Optional[Path], optional): The root directory of the project. If None, uses config.project_root.
         """
         # Initialize instance variables
         self.category = ""
-        self.subcategory_order = []
-        self.subcategory_names = {}
-        self.name_special_cases = {}
-        self.index_table_headers = []
-        self.index_table_alignments = []
+        self.subcategory_order: list[str] = []
+        self.subcategory_names: dict[str, str] = {}
+        self.name_special_cases: dict[str, str] = {}
+        self.index_table_headers: list[str] = []
+        self.index_table_alignments: list[str] = []
 
         # Store and register config
         self.config = config
-        if config is not None:
-            set_config(config)
+        set_config(config)
 
         self.logger = get_logger(self.__class__.__module__)
-        if project_root is None:
-            # Get project_root from config
-            if config is not None and hasattr(config, 'project_root'):
-                self.project_root = config.project_root
-            else:
-                raise ValueError(
-                    f"{self.__class__.__name__} requires either 'project_root' parameter or "
-                    f"'config' with 'project_root' attribute. Please pass a WikiConfig instance "
-                    f"with project_root set, or provide project_root directly."
-                )
-        else:
-            self.project_root = project_root
+        self.project_root = project_root if project_root is not None else config.project_root
 
         self.output_dir = self.project_root / output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -288,7 +279,7 @@ class BaseGenerator(ABC):
                 # Handle different entry types (tuple, object with .name, etc.)
                 if isinstance(entry, tuple):
                     entry_name = entry[0] if entry else "unknown"
-                elif hasattr(entry, 'name'):
+                elif hasattr(entry, "name"):
                     entry_name = entry.name
                 else:
                     entry_name = str(entry)
@@ -318,8 +309,10 @@ class BaseGenerator(ABC):
         self.logger.info(f"Generating {self.category} index page for {len(data)} {self.category}")
 
         title = self.category.capitalize()
+        game_title = self.config.game_title
+
         md = f"# {title}\n\n"
-        md += f"Complete list of all {self.category} in **{self.config.game_title}**.\n\n"
+        md += f"Complete list of all {self.category} in **{game_title}**.\n\n"
         md += f"> Click on any of the {title} to see its full description.\n\n"
         for subcategory in self.subcategory_order:
             if subcategory not in categorized_entries:
@@ -388,7 +381,7 @@ class BaseGenerator(ABC):
         if not changes:
             return ""
 
-        md = '!!! info "ROM Changes\n\n'
+        md = '??? note "ROM Changes"\n\n'
 
         for change in changes:
             field = change.get("field", "Unknown")

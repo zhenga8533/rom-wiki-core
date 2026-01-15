@@ -40,7 +40,7 @@ class LocationGenerator(BaseGenerator):
 
     def __init__(
         self,
-        config=None,
+        config,
         output_dir: str = "docs/locations",
         input_dir: str = "data/locations",
         project_root: Optional[Path] = None,
@@ -52,7 +52,7 @@ class LocationGenerator(BaseGenerator):
             config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/locations".
             input_dir (str, optional): Directory where location JSON files are stored. Defaults to "data/locations".
-            project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
+            project_root (Optional[Path], optional): The root directory of the project. If None, uses config.project_root.
             index_columns (Optional[List[str]], optional): List of columns to show in the index table.
                 Available columns: "Location", "Trainers", "Wild Encounters", "Hidden Grotto".
                 Defaults to all columns. "Location" is always included.
@@ -73,7 +73,7 @@ class LocationGenerator(BaseGenerator):
 
         # Determine which columns to show
         # Priority: parameter > config > default (all columns)
-        if index_columns is None and config and hasattr(config, 'location_index_columns'):
+        if index_columns is None and config and hasattr(config, "location_index_columns"):
             index_columns = config.location_index_columns
 
         if index_columns is None:
@@ -247,8 +247,9 @@ class LocationGenerator(BaseGenerator):
         self.logger.info("Generating locations overview page...")
 
         # Start markdown
+        game_title = self.config.game_title
         markdown = "# Locations\n\n"
-        markdown += f"Complete list of all locations in **{self.config.game_title}**.\n\n"
+        markdown += f"Complete list of all locations in **{game_title}**.\n\n"
         markdown += "> Click on any of the Locations to see its full description.\n\n"
 
         # Get all locations from the 'all' category
@@ -426,7 +427,7 @@ class LocationGenerator(BaseGenerator):
         i = 0
         while i < len(trainers):
             trainer = trainers[i]
-            trainer_name = trainer['name']
+            trainer_name = trainer["name"]
 
             # Skip if we've already processed this trainer name
             if trainer_name in processed_names:
@@ -434,10 +435,10 @@ class LocationGenerator(BaseGenerator):
                 continue
 
             # Find all trainers with the same name
-            same_name_trainers = [t for t in trainers if t['name'] == trainer_name]
+            same_name_trainers = [t for t in trainers if t["name"] == trainer_name]
 
             # Check if they all have team_variation
-            has_variations = all(t.get('team_variation') for t in same_name_trainers)
+            has_variations = all(t.get("team_variation") for t in same_name_trainers)
 
             if has_variations and len(same_name_trainers) > 1:
                 # Use tabs for multiple variations
@@ -449,7 +450,7 @@ class LocationGenerator(BaseGenerator):
 
                 # Add tabs for each variation
                 for t in same_name_trainers:
-                    variation = t['team_variation']
+                    variation = t["team_variation"]
                     markdown += f'=== "{variation}"\n\n'
                     markdown += self._build_team_table(t["team"], indent=1)
             else:
@@ -489,10 +490,10 @@ class LocationGenerator(BaseGenerator):
         markdown = ""
 
         if trainer.get("reward"):
+            relative_path = self.config.generator_dex_relative_path
             markdown += "**Reward:** "
             markdown += ", ".join(
-                format_item(item, relative_path=self.config.generator_dex_relative_path)
-                for item in trainer["reward"]
+                format_item(item, relative_path=relative_path) for item in trainer["reward"]
             )
             markdown += "\n\n"
 
@@ -525,8 +526,10 @@ class LocationGenerator(BaseGenerator):
         markdown += f"{tab}|:-------:|:-------:|:-----------|:------|\n"
 
         for pokemon in team:
+            relative_path = self.config.generator_dex_relative_path
+
             # Pokemon column
-            row = f"{tab}| {format_pokemon(pokemon['pokemon'], relative_path=self.config.generator_dex_relative_path, config=self.config)} | "
+            row = f"{tab}| {format_pokemon(pokemon['pokemon'], relative_path=relative_path, config=self.config)} | "
 
             # Type(s) column
             badges = " ".join(format_type_badge(t) for t in pokemon["types"])
@@ -535,9 +538,9 @@ class LocationGenerator(BaseGenerator):
             # Attributes column
             row += f"**Level:** {pokemon['level']}"
             if pokemon.get("ability"):
-                row += f"<br>**Ability:** {format_ability(pokemon['ability'], relative_path=self.config.generator_dex_relative_path)}"
+                row += f"<br>**Ability:** {format_ability(pokemon['ability'], relative_path=relative_path)}"
             if pokemon.get("item"):
-                row += f"<br>**Item:** {format_item(pokemon['item'], relative_path=self.config.generator_dex_relative_path)}"
+                row += f"<br>**Item:** {format_item(pokemon['item'], relative_path=relative_path)}"
             row += " | "
 
             # Moves column
@@ -545,7 +548,7 @@ class LocationGenerator(BaseGenerator):
                 for i, move in enumerate(pokemon["moves"]):
                     if i > 0:
                         row += "<br>"
-                    row += f"{i + 1}. {format_move(move, relative_path=self.config.generator_dex_relative_path)}"
+                    row += f"{i + 1}. {format_move(move, relative_path=relative_path)}"
 
             markdown += row + " |\n"
 
@@ -571,8 +574,11 @@ class LocationGenerator(BaseGenerator):
             markdown += "|:-------:|:-------:|:---------|:-------|\n"
 
             for encounter in encounters:
+                relative_path = self.config.generator_dex_relative_path
                 pokemon_md = format_pokemon(
-                    encounter["pokemon"], relative_path=self.config.generator_dex_relative_path, config=self.config
+                    encounter["pokemon"],
+                    relative_path=relative_path,
+                    config=self.config,
                 )
 
                 # Types

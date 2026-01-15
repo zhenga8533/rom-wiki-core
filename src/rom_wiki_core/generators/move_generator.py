@@ -42,13 +42,15 @@ class MoveGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(
+        self, config, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None
+    ):
         """Initialize the Move page generator.
 
         Args:
             config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
-            project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
+            project_root (Optional[Path], optional): The root directory of the project. If None, uses config.project_root.
         """
         # Initialize base generator
         super().__init__(config=config, output_dir=output_dir, project_root=project_root)
@@ -180,19 +182,20 @@ class MoveGenerator(BaseGenerator):
         """
         name = format_display_name(entry.name)
         link = f"[{name}](moves/{entry.name}.md)"
+        version_group = self.config.version_group
 
-        move_type = getattr(entry.type, self.config.version_group, None) or "???"
+        move_type = getattr(entry.type, version_group, None) or "???"
         type_badge = format_type_badge(move_type)
 
         category = format_category_badge(entry.damage_class)
 
-        power = getattr(entry.power, self.config.version_group, None)
+        power = getattr(entry.power, version_group, None)
         power_str = str(power) if power is not None and power > 0 else "—"
 
-        accuracy = getattr(entry.accuracy, self.config.version_group, None)
+        accuracy = getattr(entry.accuracy, version_group, None)
         accuracy_str = str(accuracy) if accuracy is not None and accuracy > 0 else "—"
 
-        pp = getattr(entry.pp, self.config.version_group, None)
+        pp = getattr(entry.pp, version_group, None)
         pp_str = str(pp) if pp is not None and pp > 0 else "—"
 
         return [link, type_badge, category, power_str, accuracy_str, pp_str]
@@ -209,7 +212,8 @@ class MoveGenerator(BaseGenerator):
         md = ""
 
         display_name = format_display_name(move.name)
-        move_type = getattr(move.type, self.config.version_group, None) or "???"
+        version_group = self.config.version_group
+        move_type = getattr(move.type, version_group, None) or "???"
         category = move.damage_class.title() if move.damage_class else "Unknown"
 
         md += "<div>\n"
@@ -229,11 +233,12 @@ class MoveGenerator(BaseGenerator):
         md = "## :material-chart-box: Stats\n\n"
 
         # Get stats
-        move_type = getattr(move.type, self.config.version_group, None) or "???"
+        version_group = self.config.version_group
+        move_type = getattr(move.type, version_group, None) or "???"
         category = move.damage_class.title() if move.damage_class else "Unknown"
-        power = getattr(move.power, self.config.version_group, None)
-        accuracy = getattr(move.accuracy, self.config.version_group, None)
-        pp = getattr(move.pp, self.config.version_group, None)
+        power = getattr(move.power, version_group, None)
+        accuracy = getattr(move.accuracy, version_group, None)
+        pp = getattr(move.pp, version_group, None)
         priority = move.priority
 
         # Use grid cards for a cleaner layout
@@ -297,10 +302,12 @@ class MoveGenerator(BaseGenerator):
         """
         md = "## :material-information: Effect\n\n"
 
+        version_group = self.config.version_group
+
         # Full effect
         if move.effect:
             # Try to get version-specific effect, fallback to first available
-            effect_text = getattr(move.effect, self.config.version_group, None)
+            effect_text = getattr(move.effect, version_group, None)
 
             if effect_text:
                 md += f'!!! info "Description"\n\n'
@@ -309,8 +316,8 @@ class MoveGenerator(BaseGenerator):
         # Short effect (handle GameVersionStringMap object)
         if move.short_effect:
             short_effect_text = None
-            if hasattr(move.short_effect, self.config.version_group):
-                short_effect_text = getattr(move.short_effect, self.config.version_group, None)
+            if hasattr(move.short_effect, version_group):
+                short_effect_text = getattr(move.short_effect, version_group, None)
             else:
                 short_effect_text = str(move.short_effect)
 
@@ -335,10 +342,12 @@ class MoveGenerator(BaseGenerator):
         """
         md = "## :material-book-open: In-Game Description\n\n"
 
-        flavor_text = getattr(move.flavor_text, self.config.version_group, None)
+        version_group = self.config.version_group
+        flavor_text = getattr(move.flavor_text, version_group, None)
 
         if flavor_text:
-            md += f'!!! quote "{self.config.version_group_friendly}"\n\n'
+            friendly_name = self.config.version_group_friendly
+            md += f'!!! quote "{friendly_name}"\n\n'
             md += f"    {flavor_text}\n\n"
         else:
             md += "*No in-game description available.*\n\n"

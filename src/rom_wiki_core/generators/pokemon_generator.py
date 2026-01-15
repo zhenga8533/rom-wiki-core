@@ -74,13 +74,15 @@ class PokemonGenerator(BaseGenerator):
         BaseGenerator (_type_): Abstract base generator class
     """
 
-    def __init__(self, config=None, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None):
+    def __init__(
+        self, config, output_dir: str = "docs/pokedex", project_root: Optional[Path] = None
+    ):
         """Initialize the Pokemon page generator.
 
         Args:
             config: WikiConfig instance with project settings.
             output_dir (str, optional): Directory where markdown files will be generated. Defaults to "docs/pokedex".
-            project_root (Optional[Path], optional): The root directory of the project. If None, it's inferred.
+            project_root (Optional[Path], optional): The root directory of the project. If None, uses config.project_root.
         """
         # Initialize base generator
         super().__init__(config=config, output_dir=output_dir, project_root=project_root)
@@ -209,9 +211,10 @@ class PokemonGenerator(BaseGenerator):
         types_cell = f'<div class="badges-vstack">{type_badges}</div>'
 
         # Abilities (non-hidden only, max 2)
+        relative_path = self.config.generator_index_relative_path
         abilities = [a.name for a in entry.abilities if not a.is_hidden]
         abilities_str = ", ".join(
-            [format_ability(a, relative_path=self.config.generator_index_relative_path) for a in abilities[:2]]
+            [format_ability(a, relative_path=relative_path) for a in abilities[:2]]
         )
 
         return [dex_str, sprite_cell, name_link, types_cell, abilities_str]
@@ -379,8 +382,9 @@ class PokemonGenerator(BaseGenerator):
         md += "- **:material-shield-star: Abilities**\n\n"
         md += "\t---\n\n"
         for ability in pokemon.abilities:
+            relative_path = self.config.generator_dex_relative_path
             ability_display = format_ability(
-                ability.name, is_linked=True, relative_path=self.config.generator_dex_relative_path
+                ability.name, is_linked=True, relative_path=relative_path
             )
             # Add hidden indicator if applicable
             if ability.is_hidden:
@@ -457,16 +461,19 @@ class PokemonGenerator(BaseGenerator):
         md = "## :material-treasure-chest: Wild Held Items\n\n"
         md += "These items can be found when catching or defeating this Pokémon in the wild:\n\n"
 
+        relative_path = self.config.generator_dex_relative_path
+        game_versions = self.config.pokedb_game_versions
+
         # Build table rows with dynamic game version columns
         rows = []
         for item_name, rates in pokemon.held_items.items():
             # Convert underscores to hyphens for item identifier
             item_id = item_name.replace("_", "-")
-            item_display = format_item(item_id, relative_path=self.config.generator_dex_relative_path)
+            item_display = format_item(item_id, relative_path=relative_path)
 
             # Build row with all game version rates
             row = [item_display]
-            for version in self.config.pokedb_game_versions:
+            for version in game_versions:
                 rate = rates.get(version, 0)
                 rate_str = f"{rate}%" if rate else "—"
                 row.append(rate_str)
@@ -474,7 +481,7 @@ class PokemonGenerator(BaseGenerator):
             rows.append(row)
 
         # Build headers for game versions
-        version_headers = [format_display_name(v) for v in self.config.pokedb_game_versions]
+        version_headers = [format_display_name(v) for v in game_versions]
 
         # Use standardized table utility with dynamic headers
         headers = ["Item"] + version_headers
@@ -834,28 +841,31 @@ class PokemonGenerator(BaseGenerator):
         # Build table rows
         rows = []
         for move_learn in sorted_moves:
+            relative_path = self.config.generator_dex_relative_path
             move_data = PokeDBLoader.load_move(move_learn.name)
             move_name_formatted = format_move(
                 move_learn.name,
                 is_linked=True,
-                relative_path=self.config.generator_dex_relative_path,
+                relative_path=relative_path,
             )
 
             if move_data:
+                version_group = self.config.version_group
+
                 # Get move details
-                move_type = getattr(move_data.type, self.config.version_group, None) or "???"
+                move_type = getattr(move_data.type, version_group, None) or "???"
                 type_badge = format_type_badge(move_type)
 
                 damage_class = move_data.damage_class
                 category_icon = format_category_badge(damage_class)
 
-                power = getattr(move_data.power, self.config.version_group, None)
+                power = getattr(move_data.power, version_group, None)
                 power_str = str(power) if power is not None else "—"
 
-                accuracy = getattr(move_data.accuracy, self.config.version_group, None)
+                accuracy = getattr(move_data.accuracy, version_group, None)
                 accuracy_str = str(accuracy) if accuracy is not None else "—"
 
-                pp = getattr(move_data.pp, self.config.version_group, None)
+                pp = getattr(move_data.pp, version_group, None)
                 pp_str = str(pp) if pp is not None else "—"
 
                 if include_level:
@@ -969,13 +979,14 @@ class PokemonGenerator(BaseGenerator):
         md = "## :material-book-open: Pokédex Entries\n\n"
 
         # Check if any flavor text exists for configured game versions
+        game_versions = self.config.pokedb_game_versions
         has_flavor_text = any(
-            getattr(pokemon.flavor_text, version, None) for version in self.config.pokedb_game_versions
+            getattr(pokemon.flavor_text, version, None) for version in game_versions
         )
 
         if has_flavor_text:
             # Show flavor text for each configured game version
-            for idx, version in enumerate(self.config.pokedb_game_versions):
+            for idx, version in enumerate(game_versions):
                 version_display = format_display_name(version)
                 # Use generic book icon for all tabs
                 icon = ":material-book:"
@@ -1135,6 +1146,8 @@ class PokemonGenerator(BaseGenerator):
         """
         parts = ["## :material-image-multiple: Sprites\n\n"]
 
+        version = self.config.pokedb_sprite_version
+
         sprites = pokemon.sprites
         is_cosmetic = any(form.category == "cosmetic" for form in pokemon.forms)
 
@@ -1142,7 +1155,7 @@ class PokemonGenerator(BaseGenerator):
         has_female_sprites = False
 
         if not is_cosmetic and hasattr(sprites, "versions") and sprites.versions:
-            sprite_version = getattr(sprites.versions, self.config.pokedb_sprite_version, None)
+            sprite_version = getattr(sprites.versions, version, None)
             if sprite_version and sprite_version.animated and sprite_version.animated.front_default:
                 has_animated = True
                 if sprite_version.animated.front_female:
@@ -1151,7 +1164,7 @@ class PokemonGenerator(BaseGenerator):
         parts.append('=== "In-Game Sprites"\n\n')
 
         if has_animated:
-            sprite_version = getattr(sprites.versions, self.config.pokedb_sprite_version, None)
+            sprite_version = getattr(sprites.versions, version, None)
             if sprite_version is None:
                 return "".join(parts)
             parts.append(self._generate_animated_sprites(sprite_version, has_female_sprites))
