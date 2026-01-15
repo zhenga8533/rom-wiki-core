@@ -3,7 +3,7 @@ Base service class providing change tracking utilities for all services.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Union
+from typing import Any
 
 from rom_wiki_core.utils.core.logger import get_logger
 
@@ -23,8 +23,10 @@ class BaseService:
     ) -> bool:
         """Record a change to a data object.
 
-        Prevents duplicate changes by checking if a change for the same field already exists.
-        If it exists, updates the new_value and timestamp (keeping original old_value).
+        Prevents duplicate changes by checking if a change for the same field and old_value
+        already exists. This allows multiple changes for the same field (e.g., multiple
+        evolution method changes for a Pokemon with branching evolutions).
+        If a duplicate exists, updates the new_value and timestamp.
         If it doesn't exist, adds a new change record.
 
         Args:
@@ -49,10 +51,11 @@ class BaseService:
         if not hasattr(data_object, "changes"):
             data_object.changes = []
 
-        # Check if a change for this field already exists
+        # Check if a change for this field with the same old_value already exists
+        # This allows multiple changes for the same field (e.g., multiple evolution changes)
         existing_change = None
         for change in data_object.changes:
-            if change.get("field") == field:
+            if change.get("field") == field and change.get("old_value") == old_str:
                 existing_change = change
                 break
 

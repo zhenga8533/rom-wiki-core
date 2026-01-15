@@ -29,6 +29,69 @@ class EvolutionService(BaseService):
     """
 
     @staticmethod
+    def _format_evolution_details(details: Optional[EvolutionDetails]) -> str:
+        """Format evolution details into a readable string.
+
+        Args:
+            details (Optional[EvolutionDetails]): The evolution details to format
+
+        Returns:
+            str: A human-readable description of the evolution method
+        """
+        if not details:
+            return "unknown"
+
+        trigger = details.trigger or "unknown"
+        parts = [trigger]
+
+        # Add relevant details based on trigger type
+        if details.item:
+            parts.append(f"({details.item})")
+        elif details.held_item:
+            parts.append(f"(held: {details.held_item})")
+        elif details.min_level:
+            parts.append(f"(level {details.min_level})")
+        elif details.min_happiness:
+            time_str = f", {details.time_of_day}" if details.time_of_day else ""
+            parts.append(f"(happiness{time_str})")
+        elif details.known_move:
+            parts.append(f"(knows {details.known_move})")
+        elif details.location:
+            parts.append(f"(at {details.location})")
+
+        return " ".join(parts)
+
+    @staticmethod
+    def _find_existing_evolution(
+        evolution_chain: EvolutionChain,
+        pokemon_id: str,
+        evolution_id: str,
+    ) -> Optional[EvolutionDetails]:
+        """Find existing evolution details for a specific evolution path.
+
+        Args:
+            evolution_chain (EvolutionChain): The evolution chain to search
+            pokemon_id (str): The Pokemon that evolves
+            evolution_id (str): The evolution target
+
+        Returns:
+            Optional[EvolutionDetails]: The existing evolution details, or None
+        """
+
+        def search_node(node: EvolutionChain | EvolutionNode) -> Optional[EvolutionDetails]:
+            if node.species_name == pokemon_id:
+                for evo in node.evolves_to:
+                    if evo.species_name == evolution_id:
+                        return evo.evolution_details
+            for evo in node.evolves_to:
+                result = search_node(evo)
+                if result:
+                    return result
+            return None
+
+        return search_node(evolution_chain)
+
+    @staticmethod
     def update_evolution_chain(
         pokemon_id: str,
         evolution_id: str,
@@ -63,6 +126,19 @@ class EvolutionService(BaseService):
             },
         )
 
+        # Capture old evolution details before updating for change tracking
+        old_details = EvolutionService._find_existing_evolution(
+            evolution_chain, pokemon_id, evolution_id
+        )
+        old_value = (
+            f"{pokemon_id} > {evolution_id}: "
+            f"{EvolutionService._format_evolution_details(old_details)}"
+        )
+        new_value = (
+            f"{pokemon_id} > {evolution_id}: "
+            f"{EvolutionService._format_evolution_details(evolution_details)}"
+        )
+
         EvolutionService._update_evolution_node(
             evolution_chain,
             evolution_chain,
@@ -76,7 +152,9 @@ class EvolutionService(BaseService):
         # Save the updated chain to ALL Pokemon in the chain
         all_species = EvolutionService._collect_all_species(evolution_chain)
         for species_id in all_species:
-            EvolutionService._save_evolution_node(species_id, evolution_chain)
+            EvolutionService._save_evolution_node(
+                species_id, evolution_chain, old_value, new_value
+            )
 
         logger.debug(f"Successfully updated evolution chain for {pokemon_id}")
         return evolution_chain
@@ -256,12 +334,19 @@ class EvolutionService(BaseService):
         return species_ids
 
     @staticmethod
-    def _save_evolution_node(pokemon_id: str, evolution_chain: EvolutionChain):
+    def _save_evolution_node(
+        pokemon_id: str,
+        evolution_chain: EvolutionChain,
+        old_value: str,
+        new_value: str,
+    ):
         """Save the evolution chain for a specific Pokemon.
 
         Args:
             pokemon_id (str): ID of the Pokemon to save the evolution chain for
             evolution_chain (EvolutionChain): The evolution chain to save
+            old_value (str): Description of the old evolution method for change tracking
+            new_value (str): Description of the new evolution method for change tracking
         """
         # Get all form files and the pre-loaded base Pokemon object
         form_files, base_pokemon_data = PokeDBLoader.find_all_form_files(pokemon_id)
@@ -290,12 +375,11 @@ class EvolutionService(BaseService):
                         continue
 
                 # Update the evolution chain and save
-                # Record change (simple message since evolution chains are complex)
                 BaseService.record_change(
                     pokemon_data,
                     field="Evolution Chain",
-                    old_value="Updated",
-                    new_value="Modified evolution method or target",
+                    old_value=old_value,
+                    new_value=new_value,
                     source="evolution_service",
                 )
                 pokemon_data.evolution_chain = evolution_chain
