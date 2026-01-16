@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2026-01-16
+
+### Added
+
+- **Stat Normalization Utilities**: New stat slug normalization and display mapping in `constants.py`
+  - `STAT_ALIASES` for flexible stat name lookups
+  - `STAT_DISPLAY_NAMES` for formatted stat display
+  - `normalize_stat()` function for consistent stat handling
+- **Ability Update Methods**: New methods to update individual ability slots for Pokémon
+  - `update_ability_1()`, `update_ability_2()`, `update_hidden_ability()` in `AttributeService`
+- **Individual Stat Update Methods**: New methods to update specific stats
+  - `update_hp()`, `update_attack()`, `update_defense()`, etc. in `AttributeService`
+
+### Changed
+
+- **Explicit ID Parameters**: Refactored services to use explicit IDs instead of names
+  - `AttributeService`, `ItemService`, `MoveService`, `PokemonItemService`, `PokemonMoveService`
+  - Method signatures now use `pokemon_id`, `item_id`, `move_id` for clarity
+  - Reduces ambiguity and improves code readability
+- **EV Yield Handling**: Refactored EV yield parsing and formatting to use new stat utilities
+- **Service Layer Cleanup**: Removed unnecessary name normalization from service layers
+  - Centralizes canonical ID usage throughout
+
+### Fixed
+
+- **STAT_ALIASES 'spd' Mapping**: Corrected `'spd'` alias to map to `StatSlug.SPEED` instead of `StatSlug.SPECIAL_DEFENSE`
+
 ## [1.0.4] - 2026-01-15
 
 ### Added
@@ -188,6 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logging system with rotating file handlers
 - Service layer for data manipulation
 
+[1.0.5]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.5
 [1.0.4]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.4
 [1.0.3]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.3
 [1.0.2]: https://github.com/zhenga8533/rom-wiki-core/releases/tag/v1.0.2
