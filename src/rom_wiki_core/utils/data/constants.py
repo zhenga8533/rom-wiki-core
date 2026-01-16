@@ -187,6 +187,7 @@ POKEMON_FORM_SUBFOLDERS = ["default", "transformation", "variant", "cosmetic"]
 # Stat Constants
 # ============================================================================
 
+
 # Canonical stat slugs matching the Stats dataclass field names (snake_case)
 class StatSlug:
     """Canonical stat identifiers matching Stats dataclass fields."""
@@ -232,7 +233,7 @@ STAT_ALIASES: dict[str, str] = {
     "spatk": StatSlug.SPECIAL_ATTACK,
     "spdef": StatSlug.SPECIAL_DEFENSE,
     "spa": StatSlug.SPECIAL_ATTACK,
-    "spd": StatSlug.SPECIAL_DEFENSE,
+    "spd": StatSlug.SPEED,
     "spe": StatSlug.SPEED,
 }
 
