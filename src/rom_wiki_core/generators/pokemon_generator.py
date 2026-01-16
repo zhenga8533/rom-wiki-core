@@ -775,7 +775,7 @@ class PokemonGenerator(BaseGenerator):
 
                 # Add indicator if this is the current Pokemon
                 if species_name.lower() == pokemon.species.lower():
-                    info += "\n\n\t***You are here***"
+                    info += "\n\n***You are here***"
 
                 highlighted_extra_info.append(info)
 
