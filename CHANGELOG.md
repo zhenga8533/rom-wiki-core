@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Generator Config Parameter**: `config` is now a required parameter in all generators (previously optional)
   - Simplifies initialization and ensures config is always available
   - `project_root` defaults to `config.project_root` when not explicitly provided
-- **ROM Changes Display**: Changed from `!!! info` to `??? note` (collapsible admonition)
+- **ROM Changes Display**: Changed from `!!! info` to `??? note` (collapsible admonition), now includes entity name in title
 - **Evolution Change Tracking**: Improved change records to show actual evolution method details
   - Old: "Updated" → "Modified evolution method or target"
   - New: "bulbasaur > ivysaur: level-up (level 16)" with full details
@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Duplicate Change Detection**: `BaseService.record_change()` now checks both field AND old_value
   - Allows tracking multiple changes for the same field (e.g., different evolution branches)
   - Previously would overwrite changes for the same field regardless of old_value
+
+### Removed
+
+- **MoveService.update_move_type()**: Removed redundant method, use `update_move_attribute()` instead
 
 ## [1.0.3] - 2025-12-30
 
