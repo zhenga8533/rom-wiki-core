@@ -11,7 +11,6 @@ from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.services.base_service import BaseService
 from rom_wiki_core.utils.text.dict_util import get_most_common_value
-from rom_wiki_core.utils.text.text_util import name_to_id
 
 logger = get_logger(__name__)
 
@@ -24,8 +23,8 @@ class MoveService(BaseService):
         """Normalize version group fields to only include configured version groups.
 
         Args:
-            data (dict[str, Any]): The move data dictionary.
-            field_name (str): The name of the field to process (e.g., "accuracy", "type").
+            data: The move data dictionary.
+            field_name: The name of the field to process (e.g., "accuracy", "type").
         """
         if field_name not in data:
             return
@@ -56,10 +55,10 @@ class MoveService(BaseService):
         """Process move data by normalizing version group fields to match config.
 
         Args:
-            data (dict[str, Any]): The move data dictionary.
+            data: The move data dictionary.
 
         Returns:
-            dict[str, Any]: The modified move data with normalized version group fields.
+            The modified move data with normalized version group fields.
         """
         # Fields that use GameVersionIntMap or GameVersionStringMap
         version_fields = [
@@ -83,11 +82,13 @@ class MoveService(BaseService):
         """Copy a new move from newer generation to parsed data folder.
 
         Args:
-            move_name (str): Name of the move to copy
+            move_name: Name of the move to copy (will be converted to ID).
 
         Returns:
-            bool: True if copied, False if skipped or error
+            True if copied, False if skipped or error.
         """
+        from rom_wiki_core.utils.text.text_util import name_to_id
+
         # Normalize move name
         move_id = name_to_id(move_name)
 
@@ -140,96 +141,209 @@ class MoveService(BaseService):
             return False
 
     @staticmethod
-    def update_move_attribute(move_name: str, attribute: str, new_value: str) -> bool:
-        """Update an attribute of an existing move in the parsed data folder.
+    def update_move_power(move_id: str, power: int | None) -> bool:
+        """Update the power of a move.
 
         Args:
-            move_name (str): Name of the move to modify
-            attribute (str): Attribute to update (e.g., "power", "pp", "priority", "accuracy", "type")
-            new_value (str): New value to set for the attribute
+            move_id: The ID of the move (e.g., "thunderbolt", "hyper-beam").
+            power: The new power value, or None for status moves.
 
         Returns:
-            bool: True if modified, False if error
+            True if updated successfully, False otherwise.
         """
-        # Normalize move name and attribute
-        move_id = name_to_id(move_name)
-        attribute = attribute.lower().strip()
-
-        # Map attribute names to field names
-        attribute_map = {
-            "power": "power",
-            "pp": "pp",
-            "priority": "priority",
-            "accuracy": "accuracy",
-            "type": "type",
-        }
-
-        if attribute not in attribute_map:
-            logger.warning(f"Unsupported attribute '{attribute}' for move '{move_name}'")
-            return False
-
-        field_name = attribute_map[attribute]
-
         try:
-            # Load the move using PokeDBLoader
             move = PokeDBLoader.load_move(move_id)
             if move is None:
-                logger.warning(f"Move '{move_name}' not found in parsed data")
+                logger.warning(f"Move '{move_id}' not found in parsed data")
                 return False
-
-            # Get the field object
-            if not hasattr(move, field_name):
-                logger.warning(f"Move object has no field '{field_name}'")
-                return False
-
-            field_obj = getattr(move, field_name)
 
             # Capture old value for change tracking
             config = get_config()
-            if hasattr(field_obj, "keys"):
-                # Version group object
-                old_value_raw = getattr(field_obj, config.version_group, "unknown")
-            else:
-                # Plain value
-                old_value_raw = field_obj
+            old_value = getattr(move.power, config.version_group, None)
 
-            # Process the new value based on attribute type
-            if attribute == "type":
-                processed_value = name_to_id(new_value)
-            elif attribute in ["power", "pp", "accuracy"]:
-                if "Never" in new_value:
-                    processed_value = None
-                else:
-                    cleaned_value = "".join(filter(str.isdigit, new_value))
-                    processed_value = int(cleaned_value)
-            elif attribute == "priority":
-                processed_value = int(new_value)
-            else:
-                processed_value = new_value
-
-            # Update the attribute
-            # Check if it's a version group object or a plain value
-            if hasattr(field_obj, "keys"):
-                # Version group object - update all version groups
-                for version_key in field_obj.keys():
-                    setattr(field_obj, version_key, processed_value)
-            else:
-                # Plain value - set directly on the move object
-                setattr(move, field_name, processed_value)
+            # Update all version groups
+            for version_key in move.power.keys():
+                setattr(move.power, version_key, power)
 
             # Record change
             BaseService.record_change(
                 move,
-                field=field_name.replace("_", " ").title(),
-                old_value=str(old_value_raw) if old_value_raw is not None else "None",
-                new_value=str(processed_value) if processed_value is not None else "None",
+                field="Power",
+                old_value=str(old_value) if old_value is not None else "None",
+                new_value=str(power) if power is not None else "None",
                 source="move_service",
             )
 
-            # Save using PokeDBLoader
             PokeDBLoader.save_move(move_id, move)
-            logger.info(f"Updated {attribute} of move '{move_name}' to '{processed_value}'")
+            logger.info(f"Updated power of move '{move_id}' to {power}")
             return True
+
         except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error updating {attribute} of move '{move_name}': {e}")
+            logger.warning(f"Error updating power of move '{move_id}': {e}")
+            return False
+
+    @staticmethod
+    def update_move_pp(move_id: str, pp: int) -> bool:
+        """Update the PP of a move.
+
+        Args:
+            move_id: The ID of the move.
+            pp: The new PP value.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        try:
+            move = PokeDBLoader.load_move(move_id)
+            if move is None:
+                logger.warning(f"Move '{move_id}' not found in parsed data")
+                return False
+
+            # Capture old value for change tracking
+            config = get_config()
+            old_value = getattr(move.pp, config.version_group, None)
+
+            # Update all version groups
+            for version_key in move.pp.keys():
+                setattr(move.pp, version_key, pp)
+
+            # Record change
+            BaseService.record_change(
+                move,
+                field="PP",
+                old_value=str(old_value) if old_value is not None else "None",
+                new_value=str(pp),
+                source="move_service",
+            )
+
+            PokeDBLoader.save_move(move_id, move)
+            logger.info(f"Updated PP of move '{move_id}' to {pp}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating PP of move '{move_id}': {e}")
+            return False
+
+    @staticmethod
+    def update_move_accuracy(move_id: str, accuracy: int | None) -> bool:
+        """Update the accuracy of a move.
+
+        Args:
+            move_id: The ID of the move.
+            accuracy: The new accuracy value (0-100), or None for moves that never miss.
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        try:
+            move = PokeDBLoader.load_move(move_id)
+            if move is None:
+                logger.warning(f"Move '{move_id}' not found in parsed data")
+                return False
+
+            # Capture old value for change tracking
+            config = get_config()
+            old_value = getattr(move.accuracy, config.version_group, None)
+
+            # Update all version groups
+            for version_key in move.accuracy.keys():
+                setattr(move.accuracy, version_key, accuracy)
+
+            # Record change
+            BaseService.record_change(
+                move,
+                field="Accuracy",
+                old_value=str(old_value) if old_value is not None else "Never Misses",
+                new_value=str(accuracy) if accuracy is not None else "Never Misses",
+                source="move_service",
+            )
+
+            PokeDBLoader.save_move(move_id, move)
+            logger.info(f"Updated accuracy of move '{move_id}' to {accuracy}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating accuracy of move '{move_id}': {e}")
+            return False
+
+    @staticmethod
+    def update_move_priority(move_id: str, priority: int) -> bool:
+        """Update the priority of a move.
+
+        Args:
+            move_id: The ID of the move.
+            priority: The new priority value (-7 to +5).
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        try:
+            move = PokeDBLoader.load_move(move_id)
+            if move is None:
+                logger.warning(f"Move '{move_id}' not found in parsed data")
+                return False
+
+            # Capture old value for change tracking
+            old_value = move.priority
+
+            # Update priority (plain int, not version-grouped)
+            move.priority = priority
+
+            # Record change
+            BaseService.record_change(
+                move,
+                field="Priority",
+                old_value=str(old_value),
+                new_value=str(priority),
+                source="move_service",
+            )
+
+            PokeDBLoader.save_move(move_id, move)
+            logger.info(f"Updated priority of move '{move_id}' to {priority}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating priority of move '{move_id}': {e}")
+            return False
+
+    @staticmethod
+    def update_move_type(move_id: str, type_id: str) -> bool:
+        """Update the type of a move.
+
+        Args:
+            move_id: The ID of the move.
+            type_id: The new type ID (e.g., "fire", "water", "electric").
+
+        Returns:
+            True if updated successfully, False otherwise.
+        """
+        try:
+            move = PokeDBLoader.load_move(move_id)
+            if move is None:
+                logger.warning(f"Move '{move_id}' not found in parsed data")
+                return False
+
+            # Capture old value for change tracking
+            config = get_config()
+            old_value = getattr(move.type, config.version_group, None)
+
+            # Update all version groups
+            for version_key in move.type.keys():
+                setattr(move.type, version_key, type_id)
+
+            # Record change
+            BaseService.record_change(
+                move,
+                field="Type",
+                old_value=str(old_value) if old_value else "None",
+                new_value=type_id,
+                source="move_service",
+            )
+
+            PokeDBLoader.save_move(move_id, move)
+            logger.info(f"Updated type of move '{move_id}' to {type_id}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating type of move '{move_id}': {e}")
             return False

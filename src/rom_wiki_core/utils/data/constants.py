@@ -285,3 +285,83 @@ def stat_to_display(slug: str) -> str:
         Short display name (e.g., "SAtk") or the original slug if not found.
     """
     return STAT_DISPLAY_NAMES.get(slug, slug)
+
+
+# ============================================================================
+# Attribute Constants
+# ============================================================================
+
+
+class AttributeSlug:
+    """Canonical attribute identifiers for Pokemon data fields."""
+
+    BASE_STATS = "base_stats"
+    TYPE = "type"
+    ABILITY = "ability"
+    EVS = "evs"
+    BASE_HAPPINESS = "base_happiness"
+    BASE_EXPERIENCE = "base_experience"
+    CATCH_RATE = "catch_rate"
+    GENDER_RATIO = "gender_ratio"
+
+    @classmethod
+    def all(cls) -> list[str]:
+        """Return all valid attribute slugs."""
+        return [
+            cls.BASE_STATS,
+            cls.TYPE,
+            cls.ABILITY,
+            cls.EVS,
+            cls.BASE_HAPPINESS,
+            cls.BASE_EXPERIENCE,
+            cls.CATCH_RATE,
+            cls.GENDER_RATIO,
+        ]
+
+
+# Display name -> canonical slug mapping
+# Keys are lowercase for case-insensitive lookup
+ATTRIBUTE_ALIASES: dict[str, str] = {
+    # Canonical (already correct)
+    "base_stats": AttributeSlug.BASE_STATS,
+    "type": AttributeSlug.TYPE,
+    "ability": AttributeSlug.ABILITY,
+    "evs": AttributeSlug.EVS,
+    "base_happiness": AttributeSlug.BASE_HAPPINESS,
+    "base_experience": AttributeSlug.BASE_EXPERIENCE,
+    "catch_rate": AttributeSlug.CATCH_RATE,
+    "gender_ratio": AttributeSlug.GENDER_RATIO,
+    # Display names (from changelog parsing)
+    "base stats": AttributeSlug.BASE_STATS,
+    "abilities": AttributeSlug.ABILITY,
+    "ev yield": AttributeSlug.EVS,
+    "ev yields": AttributeSlug.EVS,
+    "base exp": AttributeSlug.BASE_EXPERIENCE,
+    "catch rate": AttributeSlug.CATCH_RATE,
+    "gender ratio": AttributeSlug.GENDER_RATIO,
+    "base happiness": AttributeSlug.BASE_HAPPINESS,
+    "base experience": AttributeSlug.BASE_EXPERIENCE,
+}
+
+
+def normalize_attribute(name: str, aliases: dict[str, str] | None = None) -> str | None:
+    """Convert any attribute name variant to canonical slug (snake_case).
+
+    Args:
+        name: The attribute name to normalize (any case, any format)
+        aliases: Optional custom alias mapping. Defaults to ATTRIBUTE_ALIASES.
+
+    Returns:
+        Canonical attribute slug (e.g., "base_stats") or None if not recognized.
+
+    Examples:
+        >>> normalize_attribute("Base Stats")
+        'base_stats'
+        >>> normalize_attribute("EVs")
+        'evs'
+        >>> normalize_attribute("Ability")
+        'ability'
+    """
+    if aliases is None:
+        aliases = ATTRIBUTE_ALIASES
+    return aliases.get(name.lower().strip())

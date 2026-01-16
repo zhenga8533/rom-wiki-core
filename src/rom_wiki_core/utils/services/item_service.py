@@ -24,22 +24,20 @@ class ItemService(BaseService):
     """Service for updating item data."""
 
     @staticmethod
-    def update_item_cost(item_name: str, new_cost: int) -> bool:
+    def update_item_cost(item_id: str, new_cost: int) -> bool:
         """Update the cost of an item.
 
         Args:
-            item_name (str): The name of the item (e.g., "Potion", "Full Restore")
-            new_cost (int): The new cost value
+            item_id: The ID of the item (e.g., "potion", "full-restore").
+            new_cost: The new cost value.
 
         Returns:
-            bool: True if the update was successful, False otherwise
+            True if the update was successful, False otherwise.
         """
-        item_id = name_to_id(item_name)
-
         # Load the item
         item = PokeDBLoader.load_item(item_id)
         if not item:
-            logger.warning(f"Item '{item_name}' (id: {item_id}) not found")
+            logger.warning(f"Item '{item_id}' not found")
             return False
 
         old_cost = item.cost
@@ -56,7 +54,7 @@ class ItemService(BaseService):
 
         # Save the updated item
         PokeDBLoader.save_item(item_id, item)
-        logger.info(f"Updated {item_name} cost: ${old_cost} -> ${new_cost}")
+        logger.info(f"Updated {item_id} cost: ${old_cost} -> ${new_cost}")
 
         return True
 
@@ -65,10 +63,10 @@ class ItemService(BaseService):
         """Copy a new item from newer generation to parsed data folder.
 
         Args:
-            item_name (str): Name of the item to copy
+            item_name: Name of the item to copy (will be converted to ID).
 
         Returns:
-            bool: True if copied, False if skipped or error
+            True if copied, False if skipped or error.
         """
         # Normalize item name
         item_id = name_to_id(item_name)
@@ -119,42 +117,39 @@ class ItemService(BaseService):
             return False
 
     @staticmethod
-    def update_tm_move(tm_name: str, new_move_name: str) -> bool:
+    def update_tm_move(tm_id: str, move_id: str) -> bool:
         """Update the move taught by a TM.
 
         This updates the TM's effect, short_effect, and flavor_text fields to reflect the new move.
         If the move doesn't exist in parsed data, it will be copied from a newer generation.
 
         Args:
-            tm_name (str): The name of the TM (e.g., "TM01", "TM50")
-            new_move_name (str): The name of the new move (e.g., "Dragon Claw")
+            tm_id: The ID of the TM (e.g., "tm01", "tm50").
+            move_id: The ID of the new move (e.g., "dragon-claw", "thunderbolt").
 
         Returns:
-            bool: True if the update was successful, False otherwise
+            True if the update was successful, False otherwise.
         """
-        tm_id = name_to_id(tm_name)
-        move_id = name_to_id(new_move_name)
-
         # Load the TM item
         tm_item = PokeDBLoader.load_item(tm_id)
         if not tm_item:
-            logger.warning(f"TM '{tm_name}' (id: {tm_id}) not found")
+            logger.warning(f"TM '{tm_id}' not found")
             return False
 
         # Try to load the new move, copy if it doesn't exist
         move = PokeDBLoader.load_move(move_id)
         if not move:
             logger.info(
-                f"Move '{new_move_name}' not found in parsed data, attempting to copy from newer generation"
+                f"Move '{move_id}' not found in parsed data, attempting to copy from newer generation"
             )
-            if not MoveService.copy_new_move(new_move_name):
-                logger.error(f"Failed to copy move '{new_move_name}'")
+            if not MoveService.copy_new_move(move_id):
+                logger.error(f"Failed to copy move '{move_id}'")
                 return False
 
             # Try loading again after copying
             move = PokeDBLoader.load_move(move_id)
             if not move:
-                logger.error(f"Move '{new_move_name}' still not found after copy attempt")
+                logger.error(f"Move '{move_id}' still not found after copy attempt")
                 return False
 
         # Capture old move name from effect (for change tracking)
@@ -192,6 +187,6 @@ class ItemService(BaseService):
 
         # Save the updated TM
         PokeDBLoader.save_item(tm_id, tm_item)
-        logger.info(f"Updated {tm_name} to teach {proper_move_name}")
+        logger.info(f"Updated {tm_id} to teach {proper_move_name}")
 
         return True

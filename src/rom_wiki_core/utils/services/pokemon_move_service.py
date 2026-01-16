@@ -7,7 +7,6 @@ from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.data.models import MoveLearn
 from rom_wiki_core.utils.services.base_service import BaseService
-from rom_wiki_core.utils.text.text_util import name_to_id
 
 logger = get_logger(__name__)
 
@@ -16,67 +15,42 @@ class PokemonMoveService(BaseService):
     """Service for updating Pokemon move-related data."""
 
     @staticmethod
-    def update_levelup_moves(pokemon: str, moves: list[tuple[int, str]], forme: str = "") -> bool:
+    def update_levelup_moves(pokemon_id: str, moves: list[MoveLearn]) -> bool:
         """Update level-up moves for a Pokemon.
 
         Args:
-            pokemon (str): The name of the Pokemon to update.
-            moves (list[tuple[int, str]]): A list of tuples containing level and move name.
-            forme (str, optional): The forme of the Pokemon (e.g., "attack", "defense"). Defaults to "".
+            pokemon_id: The ID of the Pokemon to update (e.g., "pikachu", "deoxys-attack").
+            moves: A list of MoveLearn objects representing the new level-up moves.
 
         Returns:
-            bool: True if the level-up moves were updated successfully, False otherwise.
+            True if the level-up moves were updated successfully, False otherwise.
         """
-        # Normalize pokemon name and append forme if present
-        pokemon_id = name_to_id(pokemon)
-        if forme:
-            pokemon_id = f"{pokemon_id}-{forme}"
-
         try:
             # Load the Pokemon using PokeDBLoader
             pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
             if pokemon_data is None:
-                forme_str = f" ({forme} forme)" if forme else ""
-                logger.warning(
-                    f"Pokemon '{pokemon}'{forme_str} not found in parsed data (ID: {pokemon_id})"
-                )
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
                 return False
 
-            # Build new level_up moves list as MoveLearn objects
-            config = get_config()
-            new_levelup_moves = []
-            for level, move_name in moves:
-                move_id = name_to_id(move_name)
-
-                # Validate move exists in database
-                move_data = PokeDBLoader.load_move(move_id)
+            # Validate moves exist in database
+            for move in moves:
+                move_data = PokeDBLoader.load_move(move.name)
                 if not move_data:
                     logger.warning(
-                        f"Move '{move_name}' (ID: {move_id}) not found in database. Skipping validation but saving anyway."
+                        f"Move '{move.name}' not found in database. Skipping validation but saving anyway."
                     )
-
-                new_move = MoveLearn(
-                    name=move_id,
-                    level_learned_at=level,
-                    version_groups=[config.version_group],
-                )
-                new_levelup_moves.append(new_move)
 
             # Capture old moves for change tracking
             old_moves = [
-                (
-                    m.__dict__
-                    if hasattr(m, "__dict__")
-                    else {"name": m.name, "level_learned_at": m.level_learned_at}
-                )
+                {"name": m.name, "level_learned_at": m.level_learned_at}
                 for m in pokemon_data.moves.level_up
             ]
             new_moves_dict = [
-                {"name": m.name, "level_learned_at": m.level_learned_at} for m in new_levelup_moves
+                {"name": m.name, "level_learned_at": m.level_learned_at} for m in moves
             ]
 
             # Replace level_up moves
-            pokemon_data.moves.level_up = new_levelup_moves
+            pokemon_data.moves.level_up = moves
 
             # Record change
             old_value, new_value = BaseService.format_move_list_change(old_moves, new_moves_dict)
@@ -90,99 +64,93 @@ class PokemonMoveService(BaseService):
 
             # Save using PokeDBLoader
             PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
-            logger.info(
-                f"Updated level-up moves for '{pokemon_id}': {len(new_levelup_moves)} moves"
-            )
+            logger.info(f"Updated level-up moves for '{pokemon_id}': {len(moves)} moves")
             return True
 
         except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error updating level-up moves for '{pokemon}': {e}")
+            logger.warning(f"Error updating level-up moves for '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def update_machine_moves(
-        pokemon: str, moves: list[tuple[str, str, str]], forme: str = ""
-    ) -> bool:
-        """Update TM/HM compatibility for a Pokemon.
+    def update_move_category(pokemon_id: str, category: str, move_ids: list[str]) -> bool:
+        """Update TM/HM/Tutor/Egg move compatibility for a Pokemon.
 
         Args:
-            pokemon (str): The name of the Pokemon to update.
-            moves (list[tuple[str, str, str]]): A list of tuples containing machine type, number, and move name.
-            forme (str, optional): The forme of the Pokemon (e.g., "attack", "defense"). Defaults to "".
+            pokemon_id: The ID of the Pokemon to update.
+            category: The category of move ("egg", "tutor", "machine").
+            move_ids: A list of move IDs to add (e.g., ["thunderbolt", "ice-beam"]).
 
         Returns:
-            bool: True if the machine moves were updated successfully, False otherwise.
+            True if the moves were updated successfully, False otherwise.
         """
-        # Normalize pokemon name and append forme if present
-        pokemon_id = name_to_id(pokemon)
-        if forme:
-            pokemon_id = f"{pokemon_id}-{forme}"
-
         try:
             # Load the Pokemon using PokeDBLoader
             pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
             if pokemon_data is None:
-                forme_str = f" ({forme} forme)" if forme else ""
-                logger.warning(
-                    f"Pokemon '{pokemon}'{forme_str} not found in parsed data (ID: {pokemon_id})"
-                )
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
                 return False
 
-            # Capture old machine moves for change tracking
-            old_machine_moves = [m.name for m in pokemon_data.moves.machine]
+            # Determine which category to update
+            if category == "machine":
+                pokemon_moves = pokemon_data.moves.machine
+            elif category == "tutor":
+                pokemon_moves = pokemon_data.moves.tutor
+            elif category == "egg":
+                pokemon_moves = pokemon_data.moves.egg
+            else:
+                logger.warning(f"Invalid move category '{category}' specified")
+                return False
 
-            # Add new machine moves
-            # Note: pokemon_data.moves.machine is a list of MoveLearn objects
+            # Capture old moves for change tracking
+            old_moves = [m.name for m in pokemon_moves]
+
+            # Add new moves
             added_moves = []
-            for machine_type, number, move_name in moves:
-                move_id = name_to_id(move_name)
-
+            config = get_config()
+            for move_id in move_ids:
                 # Validate move exists in database
                 move_data = PokeDBLoader.load_move(move_id)
                 if not move_data:
                     logger.warning(
-                        f"Move '{move_name}' (ID: {move_id}) not found in database. Skipping validation but saving anyway."
+                        f"Move '{move_id}' not found in database. Skipping validation but saving anyway."
                     )
 
-                # Check if move already exists in machine moves
+                # Check if move already exists in moves
                 existing_move = None
-                for m in pokemon_data.moves.machine:
+                for m in pokemon_moves:
                     if m.name == move_id:
                         existing_move = m
                         break
 
                 if existing_move:
                     # Update version groups if needed
-                    config = get_config()
                     if config.version_group not in existing_move.version_groups:
                         existing_move.version_groups.append(config.version_group)
                 else:
-                    # Add new machine move as a MoveLearn object
-                    config = get_config()
+                    # Add new move as a MoveLearn object
                     new_move = MoveLearn(
                         name=move_id,
                         level_learned_at=0,
                         version_groups=[config.version_group],
                     )
-                    pokemon_data.moves.machine.append(new_move)
+                    pokemon_moves.append(new_move)
                     added_moves.append(move_id)
 
             # Record change (only if moves were added)
             if added_moves:
-                new_machine_moves = [m.name for m in pokemon_data.moves.machine]
                 BaseService.record_change(
                     pokemon_data,
-                    field="TM/HM Compatibility",
-                    old_value=f"{len(old_machine_moves)} moves",
-                    new_value=f"{len(new_machine_moves)} moves (added: {', '.join(added_moves[:5])}{'...' if len(added_moves) > 5 else ''})",
+                    field=f"{category.capitalize()} Moves",
+                    old_value=f"{len(old_moves)} moves",
+                    new_value=f"{len(pokemon_moves)} moves (added: {', '.join(added_moves[:5])}{'...' if len(added_moves) > 5 else ''})",
                     source="pokemon_move_service",
                 )
 
             # Save using PokeDBLoader
             PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
-            logger.info(f"Updated machine moves for '{pokemon_id}': added {len(moves)} TM/HM moves")
+            logger.info(f"Updated {category} moves for '{pokemon_id}': added {len(added_moves)} moves")
             return True
 
         except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error updating machine moves for '{pokemon}': {e}")
+            logger.warning(f"Error updating {category} moves for '{pokemon_id}': {e}")
             return False

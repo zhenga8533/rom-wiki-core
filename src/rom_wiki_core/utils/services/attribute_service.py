@@ -2,14 +2,12 @@
 Service for updating Pokemon attributes (stats, type, abilities, EVs, etc.).
 """
 
-import re
-
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
-from rom_wiki_core.utils.data.constants import StatSlug, normalize_stat
-from rom_wiki_core.utils.data.models import Pokemon
+from rom_wiki_core.utils.data.constants import StatSlug
+from rom_wiki_core.utils.data.models import EVYield, PokemonAbility, Stats
 from rom_wiki_core.utils.services.base_service import BaseService
-from rom_wiki_core.utils.text.text_util import name_to_id, parse_pokemon_forme
+from rom_wiki_core.utils.text.text_util import name_to_id
 
 logger = get_logger(__name__)
 
@@ -18,131 +16,30 @@ class AttributeService(BaseService):
     """Service for updating Pokemon attributes in parsed data folder."""
 
     @staticmethod
-    def update_attribute(pokemon: str, attribute: str, value: str, forme: str = "") -> bool:
-        """Update an attribute of an existing Pokemon in the parsed data folder.
-
-        Args:
-            pokemon (str): The name of the Pokemon to update.
-            attribute (str): The attribute to update (e.g., "Base Stats", "Type", "Base Stats (Plant Forme)").
-            value (str): The new value for the attribute.
-            forme (str, optional): The forme of the Pokemon (e.g., "attack", "defense"). Defaults to "".
-                                   If the attribute name contains a forme specification, that takes precedence.
-
-        Returns:
-            bool: True if the attribute was updated successfully, False otherwise.
-        """
-        # Extract forme from attribute name if present
-        # Patterns:
-        #   - "Base Stats (Plant Forme)" -> forme="plant"
-        #   - "Ability (Complete / Sandy Forme)" -> forme="sandy"
-        forme_from_attr = ""
-        if " Forme)" in attribute:
-            # Match pattern: "(Something Forme)" or "(Complete / Something Forme)"
-            forme_match = re.search(r"(?:/\s*)?([A-Za-z\s]+)\s+Forme\)", attribute)
-            if forme_match:
-                forme_name = forme_match.group(1).strip()
-                # Parse the forme name to handle complex cases
-                _, forme_from_attr = parse_pokemon_forme(f"{pokemon} {forme_name}")
-
-        # Use forme from attribute if present, otherwise use the passed forme parameter
-        if forme_from_attr:
-            forme = forme_from_attr
-
-        # Normalize pokemon name and append forme if present
-        pokemon_id = name_to_id(pokemon)
-        if forme:
-            pokemon_id = f"{pokemon_id}-{forme}"
-
-        # Determine if we should process this attribute
-        # Patterns:
-        #   - "(Complete / Classic)": Same for both versions, process it
-        #   - "(Complete)": Complete only, process it
-        #   - "(Classic)": Classic only, skip it
-        if "Complete" in attribute:
-            # Complete version only, process it
-            pass
-        elif "Classic" in attribute:
-            # Classic only, skip it
-            logger.debug(f"Skipping Classic-only attribute '{attribute}' for '{pokemon}'")
-            return False
-
-        # Extract the base attribute name (remove version markers and forme markers)
-        attribute_base = attribute.split(" (")[0].strip()
-
-        try:
-            # Load the Pokemon using PokeDBLoader
-            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
-            if pokemon_data is None:
-                forme_str = f" ({forme} forme)" if forme else ""
-                logger.warning(
-                    f"Pokemon '{pokemon}'{forme_str} not found in parsed data (ID: {pokemon_id})"
-                )
-                return False
-
-            # Route to appropriate handler based on attribute
-            if attribute_base == "Base Stats":
-                return AttributeService._update_base_stats(pokemon_id, pokemon_data, value)
-            elif attribute_base == "Type":
-                return AttributeService._update_type(pokemon_id, pokemon_data, value)
-            elif attribute_base == "Ability":
-                return AttributeService._update_ability(pokemon_id, pokemon_data, value)
-            elif attribute_base == "EVs":
-                return AttributeService._update_evs(pokemon_id, pokemon_data, value)
-            elif attribute_base == "Base Happiness":
-                return AttributeService._update_base_happiness(pokemon_id, pokemon_data, value)
-            elif attribute_base == "Base Experience":
-                return AttributeService._update_base_experience(pokemon_id, pokemon_data, value)
-            elif attribute_base == "Catch Rate":
-                return AttributeService._update_catch_rate(pokemon_id, pokemon_data, value)
-            elif attribute_base == "Gender Ratio":
-                return AttributeService._update_gender_ratio(pokemon_id, pokemon_data, value)
-            else:
-                logger.debug(f"Attribute '{attribute_base}' not yet implemented for '{pokemon}'")
-                return False
-
-        except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error updating {attribute_base} of Pokemon '{pokemon}': {e}")
-            return False
-
-    @staticmethod
-    def _update_base_stats(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_base_stats(pokemon_id: str, stats: Stats) -> bool:
         """Update base stats for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new base stats string (e.g., "80 HP / 82 Atk / 83 Def / 100 SAtk / 100 SDef / 80 Spd / 525 BST").
+            pokemon_id: The ID of the Pokemon to update (e.g., "pikachu", "charizard-mega-x").
+            stats: The new Stats object with all stat values.
 
         Returns:
-            bool: True if the base stats were updated successfully, False otherwise.
+            True if the base stats were updated successfully, False otherwise.
         """
-        # Parse: "80 HP / 82 Atk / 83 Def / 100 SAtk / 100 SDef / 80 Spd / 525 BST"
-        parts = value.split(" / ")
-        if len(parts) != 7:
-            logger.warning(f"Invalid base stats format: {value}")
-            return False
-
         try:
-            hp = int(parts[0].split()[0])
-            attack = int(parts[1].split()[0])
-            defense = int(parts[2].split()[0])
-            sp_attack = int(parts[3].split()[0])
-            sp_defense = int(parts[4].split()[0])
-            speed = int(parts[5].split()[0])
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
 
             # Capture old value for change tracking
             old_value, _ = BaseService.format_stat_change(pokemon_data.stats, None)
 
             # Update stats object
-            pokemon_data.stats.hp = hp
-            pokemon_data.stats.attack = attack
-            pokemon_data.stats.defense = defense
-            pokemon_data.stats.special_attack = sp_attack
-            pokemon_data.stats.special_defense = sp_defense
-            pokemon_data.stats.speed = speed
+            pokemon_data.stats = stats
 
             # Record change
-            _, new_value = BaseService.format_stat_change(None, pokemon_data.stats)
+            _, new_value = BaseService.format_stat_change(None, stats)
             BaseService.record_change(
                 pokemon_data,
                 field="Base Stats",
@@ -155,201 +52,183 @@ class AttributeService(BaseService):
             PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
             logger.info(
                 f"Updated base stats for '{pokemon_id}': "
-                f"{hp}/{attack}/{defense}/{sp_attack}/{sp_defense}/{speed}"
+                f"{stats.hp}/{stats.attack}/{stats.defense}/{stats.special_attack}/{stats.special_defense}/{stats.speed}"
             )
             return True
 
-        except (ValueError, IndexError) as e:
-            logger.warning(f"Error parsing base stats '{value}': {e}")
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating base stats for Pokemon '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def _update_type(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_type(pokemon_id: str, types: list[str]) -> bool:
         """Update type for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new type string (e.g., "Fire / Dragon" or "Fire").
+            pokemon_id: The ID of the Pokemon to update.
+            types: List of type slugs (e.g., ["fire", "dragon"] or ["fire"]).
 
         Returns:
-            bool: True if the type was updated successfully, False otherwise.
+            True if the type was updated successfully, False otherwise.
         """
-        # Parse: "Fire / Dragon" or "Fire"
-        types = [name_to_id(t.strip()) for t in value.split(" / ")]
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
 
-        # Capture old value for change tracking
-        old_types = pokemon_data.types.copy()
+            # Capture old value for change tracking
+            old_types = pokemon_data.types.copy()
 
-        # Update types list (single or dual)
-        pokemon_data.types = types
+            # Update types list
+            pokemon_data.types = types
 
-        # Record change
-        old_value, new_value = BaseService.format_type_change(old_types, types)
-        BaseService.record_change(
-            pokemon_data,
-            field="Type",
-            old_value=old_value,
-            new_value=new_value,
-            source="attribute_service",
-        )
+            # Record change
+            old_value, new_value = BaseService.format_type_change(old_types, types)
+            BaseService.record_change(
+                pokemon_data,
+                field="Type",
+                old_value=old_value,
+                new_value=new_value,
+                source="attribute_service",
+            )
 
-        # Save using PokeDBLoader
-        PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
-        type_str = " / ".join(types)
-        logger.info(f"Updated type for '{pokemon_id}': {type_str}")
-        return True
+            # Save using PokeDBLoader
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            type_str = " / ".join(types)
+            logger.info(f"Updated type for '{pokemon_id}': {type_str}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating type for Pokemon '{pokemon_id}': {e}")
+            return False
 
     @staticmethod
-    def _update_ability(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_abilities(pokemon_id: str, abilities: list[PokemonAbility]) -> bool:
         """Update abilities for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new ability string (e.g., "Overgrow / Overgrow / Chlorophyll").
+            pokemon_id: The ID of the Pokemon to update.
+            abilities: List of PokemonAbility objects.
 
         Returns:
-            bool: True if the abilities were updated successfully, False otherwise.
+            True if the abilities were updated successfully, False otherwise.
         """
-        # Parse: "ability1 / ability2 / hidden_ability" (1-3 abilities accepted)
-        abilities = [name_to_id(a.strip()) for a in value.split(" / ")]
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
 
-        if len(abilities) < 1 or len(abilities) > 3:
-            logger.warning(f"Invalid ability format (expected 1-3 abilities): {value}")
+            # Validate abilities exist in database
+            for ability in abilities:
+                ability_data = PokeDBLoader.load_ability(ability.name)
+                if not ability_data:
+                    logger.warning(
+                        f"Ability '{ability.name}' not found in database. Skipping validation but saving anyway."
+                    )
+
+            # Capture old value for change tracking
+            old_abilities = []
+            for a in pokemon_data.abilities:
+                if isinstance(a, dict):
+                    old_abilities.append(a)
+                else:
+                    old_abilities.append({"name": a.name, "is_hidden": a.is_hidden, "slot": a.slot})
+
+            # Update abilities
+            pokemon_data.abilities = abilities
+
+            # Build new abilities list for change tracking
+            new_abilities = [{"name": a.name, "is_hidden": a.is_hidden, "slot": a.slot} for a in abilities]
+
+            # Record change
+            old_value, new_value = BaseService.format_ability_change(old_abilities, new_abilities)
+            BaseService.record_change(
+                pokemon_data,
+                field="Abilities",
+                old_value=old_value,
+                new_value=new_value,
+                source="attribute_service",
+            )
+
+            # Save using PokeDBLoader
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            ability_names = [a.name for a in abilities]
+            logger.info(f"Updated abilities for '{pokemon_id}': {' / '.join(ability_names)}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating abilities for Pokemon '{pokemon_id}': {e}")
             return False
 
-        # Capture old value for change tracking
-        # Handle both dict and object formats
-        old_abilities = []
-        for a in pokemon_data.abilities:
-            if isinstance(a, dict):
-                old_abilities.append(a)
-            else:
-                old_abilities.append({"name": a.name, "is_hidden": a.is_hidden, "slot": a.slot})
-
-        # Build new abilities list
-        # Structure: [{"name": str, "is_hidden": bool, "slot": int}]
-        new_abilities = []
-
-        for i, ability in enumerate(abilities):
-            if ability == "-" or not ability:
-                continue
-
-            # Validate ability exists in database
-            ability_data = PokeDBLoader.load_ability(ability)
-            if not ability_data:
-                logger.warning(
-                    f"Ability '{ability}' not found in database. Skipping validation but saving anyway."
-                )
-
-            # Only the 3rd ability is hidden (when there are 3 abilities)
-            is_hidden = (i == 2 and len(abilities) == 3)
-            new_abilities.append({"name": ability, "is_hidden": is_hidden, "slot": i + 1})
-
-        # Update abilities
-        pokemon_data.abilities = new_abilities
-
-        # Record change
-        old_value, new_value = BaseService.format_ability_change(old_abilities, new_abilities)
-        BaseService.record_change(
-            pokemon_data,
-            field="Abilities",
-            old_value=old_value,
-            new_value=new_value,
-            source="attribute_service",
-        )
-
-        # Save using PokeDBLoader
-        PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
-        ability_str = " / ".join(abilities)
-        logger.info(f"Updated abilities for '{pokemon_id}': {ability_str}")
-        return True
-
     @staticmethod
-    def _update_evs(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_ev_yield(pokemon_id: str, ev_yield: list[EVYield]) -> bool:
         """Update EV yields for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new EV yield string (e.g., "2 Atk" or "1 SAtk, 1 Spd").
+            pokemon_id: The ID of the Pokemon to update.
+            ev_yield: List of EVYield objects.
 
         Returns:
-            bool: True if the EV yields were updated successfully, False otherwise.
+            True if the EV yields were updated successfully, False otherwise.
         """
-        # Parse: "2 Atk" or "1 SAtk, 1 Spd"
-        # Mapping from canonical slug to kebab-case (EVYield model format)
-        slug_to_kebab = {
-            StatSlug.HP: "hp",
-            StatSlug.ATTACK: "attack",
-            StatSlug.DEFENSE: "defense",
-            StatSlug.SPECIAL_ATTACK: "special-attack",
-            StatSlug.SPECIAL_DEFENSE: "special-defense",
-            StatSlug.SPEED: "speed",
-        }
-
-        ev_yields = []
-        parts = [p.strip() for p in value.split(",")]
-
-        for part in parts:
-            tokens = part.split()
-            if len(tokens) != 2:
-                logger.warning(f"Invalid EV yield format: {part}")
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
                 return False
 
-            effort = int(tokens[0])
-            stat_short = tokens[1]
+            # Capture old value for change tracking
+            old_ev_yield = []
+            for ev in pokemon_data.ev_yield:
+                if isinstance(ev, dict):
+                    old_ev_yield.append(ev)
+                else:
+                    old_ev_yield.append({"stat": ev.stat, "effort": ev.effort})
 
-            # Normalize to canonical slug, then convert to kebab-case for EVYield model
-            stat_slug = normalize_stat(stat_short)
-            if stat_slug is None:
-                logger.warning(f"Unknown stat abbreviation: {stat_short}")
-                return False
+            # Update EV yield
+            pokemon_data.ev_yield = ev_yield
 
-            ev_yields.append({"stat": slug_to_kebab[stat_slug], "effort": effort})
+            # Build new ev_yield list for change tracking
+            new_ev_yield = [{"stat": ev.stat, "effort": ev.effort} for ev in ev_yield]
 
-        # Capture old value for change tracking
-        # Handle both dict and object formats
-        old_ev_yield = []
-        for ev in pokemon_data.ev_yield:
-            if isinstance(ev, dict):
-                old_ev_yield.append(ev)
-            else:
-                old_ev_yield.append({"stat": ev.stat, "effort": ev.effort})
+            # Record change
+            old_value, new_value = BaseService.format_ev_yield_change(old_ev_yield, new_ev_yield)
+            BaseService.record_change(
+                pokemon_data,
+                field="EV Yield",
+                old_value=old_value,
+                new_value=new_value,
+                source="attribute_service",
+            )
 
-        # Update EV yield
-        pokemon_data.ev_yield = ev_yields
+            # Save using PokeDBLoader
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            ev_str = ", ".join([f"{ev.effort} {ev.stat}" for ev in ev_yield])
+            logger.info(f"Updated EV yields for '{pokemon_id}': {ev_str}")
+            return True
 
-        # Record change
-        old_value, new_value = BaseService.format_ev_yield_change(old_ev_yield, ev_yields)
-        BaseService.record_change(
-            pokemon_data,
-            field="EV Yield",
-            old_value=old_value,
-            new_value=new_value,
-            source="attribute_service",
-        )
-
-        # Save using PokeDBLoader
-        PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
-        logger.info(f"Updated EV yields for '{pokemon_id}': {value}")
-        return True
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating EV yield for Pokemon '{pokemon_id}': {e}")
+            return False
 
     @staticmethod
-    def _update_base_happiness(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_base_happiness(pokemon_id: str, base_happiness: int) -> bool:
         """Update base happiness for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new base happiness string (e.g., "70").
+            pokemon_id: The ID of the Pokemon to update.
+            base_happiness: The new base happiness value (0-255).
 
         Returns:
-            bool: True if the base happiness was updated successfully, False otherwise.
+            True if the base happiness was updated successfully, False otherwise.
         """
         try:
-            base_happiness = int(value.strip())
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
 
             # Capture old value for change tracking
             old_happiness = pokemon_data.base_happiness
@@ -371,24 +250,26 @@ class AttributeService(BaseService):
             logger.info(f"Updated base happiness for '{pokemon_id}': {base_happiness}")
             return True
 
-        except ValueError as e:
-            logger.warning(f"Error parsing base happiness '{value}': {e}")
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating base happiness for Pokemon '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def _update_base_experience(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_base_experience(pokemon_id: str, base_experience: int) -> bool:
         """Update base experience for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new base experience string (e.g., "142").
+            pokemon_id: The ID of the Pokemon to update.
+            base_experience: The new base experience value.
 
         Returns:
-            bool: True if the base experience was updated successfully, False otherwise.
+            True if the base experience was updated successfully, False otherwise.
         """
         try:
-            base_experience = int(value.strip())
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
 
             # Capture old value for change tracking
             old_experience = pokemon_data.base_experience
@@ -410,24 +291,26 @@ class AttributeService(BaseService):
             logger.info(f"Updated base experience for '{pokemon_id}': {base_experience}")
             return True
 
-        except ValueError as e:
-            logger.warning(f"Error parsing base experience '{value}': {e}")
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating base experience for Pokemon '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def _update_catch_rate(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
+    def update_catch_rate(pokemon_id: str, catch_rate: int) -> bool:
         """Update catch rate for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new catch rate string (e.g., "45").
+            pokemon_id: The ID of the Pokemon to update.
+            catch_rate: The new catch rate value (0-255).
 
         Returns:
-            bool: True if the catch rate was updated successfully, False otherwise.
+            True if the catch rate was updated successfully, False otherwise.
         """
         try:
-            catch_rate = int(value.strip())
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
 
             # Capture old value for change tracking
             old_catch_rate = pokemon_data.capture_rate
@@ -449,39 +332,78 @@ class AttributeService(BaseService):
             logger.info(f"Updated catch rate for '{pokemon_id}': {catch_rate}")
             return True
 
-        except ValueError as e:
-            logger.warning(f"Error parsing catch rate '{value}': {e}")
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating catch rate for Pokemon '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def update_single_stat(pokemon: str, stat: str, new_value: int, forme: str = "") -> bool:
+    def update_gender_ratio(pokemon_id: str, gender_rate: int) -> bool:
+        """Update gender ratio for a Pokemon.
+
+        Args:
+            pokemon_id: The ID of the Pokemon to update.
+            gender_rate: The new gender rate value (-1 to 8).
+                -1 = genderless
+                0 = 100% male
+                1-7 = female percentage in eighths (1=12.5%, 4=50%, 7=87.5%)
+                8 = 100% female
+
+        Returns:
+            True if the gender ratio was updated successfully, False otherwise.
+        """
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
+
+            # Capture old value for change tracking
+            old_gender_rate = pokemon_data.gender_rate
+
+            # Update
+            pokemon_data.gender_rate = gender_rate
+
+            # Record change
+            old_value, new_value = BaseService.format_gender_ratio_change(old_gender_rate, gender_rate)
+            BaseService.record_change(
+                pokemon_data,
+                field="Gender Ratio",
+                old_value=old_value,
+                new_value=new_value,
+                source="attribute_service",
+            )
+
+            # Save using PokeDBLoader
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            logger.info(f"Updated gender ratio for '{pokemon_id}': rate={gender_rate}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating gender ratio for Pokemon '{pokemon_id}': {e}")
+            return False
+
+    @staticmethod
+    def update_single_stat(pokemon_id: str, stat: str, new_value: int) -> bool:
         """Update a single stat for a Pokemon.
 
         Args:
-            pokemon (str): The name of the Pokemon to update.
-            stat (str): The stat slug (e.g., "hp", "attack", "special_attack").
-                       Use normalize_stat() to convert display names to slugs.
-            new_value (int): The new stat value.
-            forme (str, optional): The forme of the Pokemon. Defaults to "".
+            pokemon_id: The ID of the Pokemon to update (e.g., "pikachu", "pikachu-cosplay").
+            stat: The stat slug (e.g., "hp", "attack", "special_attack").
+                  Must be one of StatSlug.all() values.
+            new_value: The new stat value.
 
         Returns:
-            bool: True if the stat was updated successfully, False otherwise.
+            True if the stat was updated successfully, False otherwise.
         """
         # Validate stat is a known slug
         if stat not in StatSlug.all():
-            logger.warning(f"Unknown stat slug '{stat}' for Pokemon '{pokemon}'")
+            logger.warning(f"Unknown stat slug '{stat}' for Pokemon '{pokemon_id}'")
             return False
-
-        # Normalize pokemon name and append forme if present
-        pokemon_id = name_to_id(pokemon)
-        if forme:
-            pokemon_id = f"{pokemon_id}-{forme}"
 
         try:
             pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
             if pokemon_data is None:
-                forme_str = f" ({forme} forme)" if forme else ""
-                logger.warning(f"Pokemon '{pokemon}'{forme_str} not found in parsed data")
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
                 return False
 
             # stat slug matches Stats dataclass field name directly
@@ -507,34 +429,25 @@ class AttributeService(BaseService):
             return True
 
         except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error updating {stat} for Pokemon '{pokemon}': {e}")
+            logger.warning(f"Error updating {stat} for Pokemon '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def update_ability_slot(pokemon: str, ability_name: str, slot: int | None = None, forme: str = "") -> bool:
+    def update_ability_slot(pokemon_id: str, ability_name: str, slot: int | None = None) -> bool:
         """Update a specific ability slot for a Pokemon.
 
         Args:
-            pokemon (str): The name of the Pokemon to update.
-            ability_name (str): The ability name to set.
-            slot (int | None): The slot number (1, 2, or 3) to update, or None to add.
-            forme (str, optional): The forme of the Pokemon. Defaults to "".
+            pokemon_id: The ID of the Pokemon to update (e.g., "pikachu", "pikachu-cosplay").
+            ability_name: The ability name (slug) to set.
+            slot: The slot number (1, 2, or 3) to update, or None to add to next available.
 
         Returns:
-            bool: True if the ability was updated successfully, False otherwise.
+            True if the ability was updated successfully, False otherwise.
         """
-        from rom_wiki_core.utils.data.models import PokemonAbility
-
-        # Normalize pokemon name and append forme if present
-        pokemon_id = name_to_id(pokemon)
-        if forme:
-            pokemon_id = f"{pokemon_id}-{forme}"
-
         try:
             pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
             if pokemon_data is None:
-                forme_str = f" ({forme} forme)" if forme else ""
-                logger.warning(f"Pokemon '{pokemon}'{forme_str} not found in parsed data")
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
                 return False
 
             ability_id = name_to_id(ability_name)
@@ -611,74 +524,46 @@ class AttributeService(BaseService):
             return True
 
         except (OSError, IOError, ValueError) as e:
-            logger.warning(f"Error updating ability for Pokemon '{pokemon}': {e}")
+            logger.warning(f"Error updating ability for Pokemon '{pokemon_id}': {e}")
             return False
 
     @staticmethod
-    def _update_gender_ratio(pokemon_id: str, pokemon_data: Pokemon, value: str) -> bool:
-        """Update gender ratio for a Pokemon.
+    def update_growth_rate(pokemon_id: str, growth_rate: str) -> bool:
+        """Update growth rate for a Pokemon.
 
         Args:
-            pokemon_id (str): The ID of the Pokemon to update.
-            pokemon_data (Pokemon): The Pokemon dataclass object.
-            value (str): The new gender ratio string (e.g., "87.5% Male, 12.5% Female").
+            pokemon_id: The ID of the Pokemon to update (e.g., "pikachu", "pikachu-cosplay").
+            growth_rate: The new growth rate slug (e.g., "fast", "medium-fast", "slow").
 
         Returns:
-            bool: True if the gender ratio was updated successfully, False otherwise.
+            True if the growth rate was updated successfully, False otherwise.
         """
-        value_lower = value.lower()
-
-        if "genderless" in value_lower or "no gender" in value_lower:
-            gender_rate = -1
-        elif "100% male" in value_lower:
-            gender_rate = 0
-        elif "100% female" in value_lower:
-            gender_rate = 8
-        else:
-            # Extract female percentage
-            match = re.search(r"(\d+(?:\.\d+)?)\s*%\s*female", value_lower)
-            if not match:
-                logger.warning(f"Could not parse gender ratio: {value}")
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
                 return False
 
-            female_percent = float(match.group(1))
+            # Capture old value for change tracking
+            old_growth_rate = pokemon_data.growth_rate
 
-            # Map to gender_rate (eighths)
-            gender_rate_map = {
-                0.0: 0,
-                12.5: 1,
-                25.0: 2,
-                37.5: 3,
-                50.0: 4,
-                62.5: 5,
-                75.0: 6,
-                87.5: 7,
-                100.0: 8,
-            }
+            # Update
+            pokemon_data.growth_rate = growth_rate
 
-            if female_percent not in gender_rate_map:
-                logger.warning(f"Unsupported gender ratio: {female_percent}% female")
-                return False
+            # Record change
+            BaseService.record_change(
+                pokemon_data,
+                field="Growth Rate",
+                old_value=str(old_growth_rate),
+                new_value=growth_rate,
+                source="attribute_service",
+            )
 
-            gender_rate = gender_rate_map[female_percent]
+            # Save using PokeDBLoader
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            logger.info(f"Updated growth rate for '{pokemon_id}': {growth_rate}")
+            return True
 
-        # Capture old value for change tracking
-        old_gender_rate = pokemon_data.gender_rate
-
-        # Update
-        pokemon_data.gender_rate = gender_rate
-
-        # Record change
-        old_value, new_value = BaseService.format_gender_ratio_change(old_gender_rate, gender_rate)
-        BaseService.record_change(
-            pokemon_data,
-            field="Gender Ratio",
-            old_value=old_value,
-            new_value=new_value,
-            source="attribute_service",
-        )
-
-        # Save using PokeDBLoader
-        PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
-        logger.info(f"Updated gender ratio for '{pokemon_id}': {value} (rate={gender_rate})")
-        return True
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating growth rate for Pokemon '{pokemon_id}': {e}")
+            return False
