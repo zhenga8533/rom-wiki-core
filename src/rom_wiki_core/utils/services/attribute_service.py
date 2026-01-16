@@ -6,6 +6,7 @@ import re
 
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
+from rom_wiki_core.utils.data.constants import StatSlug, normalize_stat
 from rom_wiki_core.utils.data.models import Pokemon
 from rom_wiki_core.utils.services.base_service import BaseService
 from rom_wiki_core.utils.text.text_util import name_to_id, parse_pokemon_forme
@@ -278,14 +279,14 @@ class AttributeService(BaseService):
             bool: True if the EV yields were updated successfully, False otherwise.
         """
         # Parse: "2 Atk" or "1 SAtk, 1 Spd"
-        # Map short names to stat names
-        stat_map = {
-            "HP": "hp",
-            "Atk": "attack",
-            "Def": "defense",
-            "SAtk": "special-attack",
-            "SDef": "special-defense",
-            "Spd": "speed",
+        # Mapping from canonical slug to kebab-case (EVYield model format)
+        slug_to_kebab = {
+            StatSlug.HP: "hp",
+            StatSlug.ATTACK: "attack",
+            StatSlug.DEFENSE: "defense",
+            StatSlug.SPECIAL_ATTACK: "special-attack",
+            StatSlug.SPECIAL_DEFENSE: "special-defense",
+            StatSlug.SPEED: "speed",
         }
 
         ev_yields = []
@@ -300,11 +301,13 @@ class AttributeService(BaseService):
             effort = int(tokens[0])
             stat_short = tokens[1]
 
-            if stat_short not in stat_map:
+            # Normalize to canonical slug, then convert to kebab-case for EVYield model
+            stat_slug = normalize_stat(stat_short)
+            if stat_slug is None:
                 logger.warning(f"Unknown stat abbreviation: {stat_short}")
                 return False
 
-            ev_yields.append({"stat": stat_map[stat_short], "effort": effort})
+            ev_yields.append({"stat": slug_to_kebab[stat_slug], "effort": effort})
 
         # Capture old value for change tracking
         # Handle both dict and object formats
@@ -448,6 +451,167 @@ class AttributeService(BaseService):
 
         except ValueError as e:
             logger.warning(f"Error parsing catch rate '{value}': {e}")
+            return False
+
+    @staticmethod
+    def update_single_stat(pokemon: str, stat: str, new_value: int, forme: str = "") -> bool:
+        """Update a single stat for a Pokemon.
+
+        Args:
+            pokemon (str): The name of the Pokemon to update.
+            stat (str): The stat slug (e.g., "hp", "attack", "special_attack").
+                       Use normalize_stat() to convert display names to slugs.
+            new_value (int): The new stat value.
+            forme (str, optional): The forme of the Pokemon. Defaults to "".
+
+        Returns:
+            bool: True if the stat was updated successfully, False otherwise.
+        """
+        # Validate stat is a known slug
+        if stat not in StatSlug.all():
+            logger.warning(f"Unknown stat slug '{stat}' for Pokemon '{pokemon}'")
+            return False
+
+        # Normalize pokemon name and append forme if present
+        pokemon_id = name_to_id(pokemon)
+        if forme:
+            pokemon_id = f"{pokemon_id}-{forme}"
+
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                forme_str = f" ({forme} forme)" if forme else ""
+                logger.warning(f"Pokemon '{pokemon}'{forme_str} not found in parsed data")
+                return False
+
+            # stat slug matches Stats dataclass field name directly
+            old_value = getattr(pokemon_data.stats, stat)
+
+            # Skip if value is already the same (idempotency)
+            if old_value == new_value:
+                return True
+
+            setattr(pokemon_data.stats, stat, new_value)
+
+            # Record change (use slug as field name for consistency)
+            BaseService.record_change(
+                pokemon_data,
+                field=f"Stat: {stat}",
+                old_value=str(old_value),
+                new_value=str(new_value),
+                source="attribute_service",
+            )
+
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            logger.info(f"Updated {stat} for '{pokemon_id}': {old_value} -> {new_value}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating {stat} for Pokemon '{pokemon}': {e}")
+            return False
+
+    @staticmethod
+    def update_ability_slot(pokemon: str, ability_name: str, slot: int | None = None, forme: str = "") -> bool:
+        """Update a specific ability slot for a Pokemon.
+
+        Args:
+            pokemon (str): The name of the Pokemon to update.
+            ability_name (str): The ability name to set.
+            slot (int | None): The slot number (1, 2, or 3) to update, or None to add.
+            forme (str, optional): The forme of the Pokemon. Defaults to "".
+
+        Returns:
+            bool: True if the ability was updated successfully, False otherwise.
+        """
+        from rom_wiki_core.utils.data.models import PokemonAbility
+
+        # Normalize pokemon name and append forme if present
+        pokemon_id = name_to_id(pokemon)
+        if forme:
+            pokemon_id = f"{pokemon_id}-{forme}"
+
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                forme_str = f" ({forme} forme)" if forme else ""
+                logger.warning(f"Pokemon '{pokemon}'{forme_str} not found in parsed data")
+                return False
+
+            ability_id = name_to_id(ability_name)
+
+            # Check if ability already exists in the same slot (idempotency)
+            for ability in pokemon_data.abilities:
+                if ability.name == ability_id:
+                    if slot is None or ability.slot == slot:
+                        return True  # Already exists, no change needed
+
+            # Capture old value for change tracking
+            old_value = None
+
+            if slot is not None:
+                # Update specific slot
+                found = False
+                for i, ability in enumerate(pokemon_data.abilities):
+                    if ability.slot == slot:
+                        if ability.name == ability_id:
+                            return True  # Already same ability
+                        old_value = ability.name
+                        is_hidden = slot == 3
+                        pokemon_data.abilities[i] = PokemonAbility(
+                            name=ability_id, is_hidden=is_hidden, slot=slot
+                        )
+                        found = True
+                        break
+
+                if not found:
+                    # Slot doesn't exist, add it
+                    is_hidden = slot == 3
+                    pokemon_data.abilities.append(
+                        PokemonAbility(name=ability_id, is_hidden=is_hidden, slot=slot)
+                    )
+            else:
+                # No slot specified - find next available slot
+                existing_slots = {ability.slot for ability in pokemon_data.abilities}
+                next_slot = None
+                for s in [1, 2, 3]:
+                    if s not in existing_slots:
+                        next_slot = s
+                        break
+
+                if next_slot is None:
+                    # All slots occupied - update slot 3
+                    next_slot = 3
+                    for i, ability in enumerate(pokemon_data.abilities):
+                        if ability.slot == 3:
+                            if ability.name == ability_id:
+                                return True
+                            old_value = ability.name
+                            pokemon_data.abilities[i] = PokemonAbility(
+                                name=ability_id, is_hidden=True, slot=3
+                            )
+                            break
+                else:
+                    is_hidden = next_slot == 3
+                    pokemon_data.abilities.append(
+                        PokemonAbility(name=ability_id, is_hidden=is_hidden, slot=next_slot)
+                    )
+
+            # Record change
+            slot_str = f" (slot {slot})" if slot else ""
+            BaseService.record_change(
+                pokemon_data,
+                field=f"Ability{slot_str}",
+                old_value=old_value if old_value else "(none)",
+                new_value=ability_id,
+                source="attribute_service",
+            )
+
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            logger.info(f"Updated ability{slot_str} for '{pokemon_id}': {ability_name}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error updating ability for Pokemon '{pokemon}': {e}")
             return False
 
     @staticmethod

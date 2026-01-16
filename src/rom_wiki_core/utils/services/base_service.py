@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from rom_wiki_core.utils.core.logger import get_logger
+from rom_wiki_core.utils.data.constants import stat_to_display
 
 logger = get_logger(__name__)
 
@@ -200,21 +201,11 @@ class BaseService:
             if not ev_yield:
                 return "None"
             # Format as "2 Atk, 1 Spd" etc
-            stat_map = {
-                "hp": "HP",
-                "attack": "Atk",
-                "defense": "Def",
-                "special-attack": "SAtk",
-                "special_attack": "SAtk",
-                "special-defense": "SDef",
-                "special_defense": "SDef",
-                "speed": "Spd",
-            }
             parts = []
             for ev in ev_yield:
                 effort = ev.get("effort", 0)
                 stat = ev.get("stat", "?")
-                stat_short = stat_map.get(stat, stat)
+                stat_short = stat_to_display(stat)
                 parts.append(f"{effort} {stat_short}")
             return ", ".join(parts)
 

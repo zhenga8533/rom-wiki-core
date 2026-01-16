@@ -181,3 +181,106 @@ TYPE_CHART: dict[str, dict[str, list[str]]] = {
 # ============================================================================
 
 POKEMON_FORM_SUBFOLDERS = ["default", "transformation", "variant", "cosmetic"]
+
+
+# ============================================================================
+# Stat Constants
+# ============================================================================
+
+# Canonical stat slugs matching the Stats dataclass field names (snake_case)
+class StatSlug:
+    """Canonical stat identifiers matching Stats dataclass fields."""
+
+    HP = "hp"
+    ATTACK = "attack"
+    DEFENSE = "defense"
+    SPECIAL_ATTACK = "special_attack"
+    SPECIAL_DEFENSE = "special_defense"
+    SPEED = "speed"
+
+    @classmethod
+    def all(cls) -> list[str]:
+        """Return all valid stat slugs."""
+        return [cls.HP, cls.ATTACK, cls.DEFENSE, cls.SPECIAL_ATTACK, cls.SPECIAL_DEFENSE, cls.SPEED]
+
+
+# Display name -> canonical slug mapping
+# Keys are lowercase for case-insensitive lookup
+STAT_ALIASES: dict[str, str] = {
+    # Canonical (already correct)
+    "hp": StatSlug.HP,
+    "attack": StatSlug.ATTACK,
+    "defense": StatSlug.DEFENSE,
+    "special_attack": StatSlug.SPECIAL_ATTACK,
+    "special_defense": StatSlug.SPECIAL_DEFENSE,
+    "speed": StatSlug.SPEED,
+    # Kebab-case (used in StatChange, EVYield models)
+    "special-attack": StatSlug.SPECIAL_ATTACK,
+    "special-defense": StatSlug.SPECIAL_DEFENSE,
+    # Full display names
+    "special attack": StatSlug.SPECIAL_ATTACK,
+    "special defense": StatSlug.SPECIAL_DEFENSE,
+    "sp. attack": StatSlug.SPECIAL_ATTACK,
+    "sp. defense": StatSlug.SPECIAL_DEFENSE,
+    "sp. atk": StatSlug.SPECIAL_ATTACK,
+    "sp. def": StatSlug.SPECIAL_DEFENSE,
+    # Common abbreviations
+    "atk": StatSlug.ATTACK,
+    "def": StatSlug.DEFENSE,
+    "satk": StatSlug.SPECIAL_ATTACK,
+    "sdef": StatSlug.SPECIAL_DEFENSE,
+    "spatk": StatSlug.SPECIAL_ATTACK,
+    "spdef": StatSlug.SPECIAL_DEFENSE,
+    "spa": StatSlug.SPECIAL_ATTACK,
+    "spd": StatSlug.SPECIAL_DEFENSE,
+    "spe": StatSlug.SPEED,
+}
+
+
+def normalize_stat(name: str, aliases: dict[str, str] | None = None) -> str | None:
+    """Convert any stat name variant to canonical slug (snake_case).
+
+    Args:
+        name: The stat name to normalize (any case, any format)
+        aliases: Optional custom alias mapping. Defaults to STAT_ALIASES.
+
+    Returns:
+        Canonical stat slug (e.g., "special_attack") or None if not recognized.
+
+    Examples:
+        >>> normalize_stat("Special Attack")
+        'special_attack'
+        >>> normalize_stat("SAtk")
+        'special_attack'
+        >>> normalize_stat("special-defense")
+        'special_defense'
+    """
+    if aliases is None:
+        aliases = STAT_ALIASES
+    return aliases.get(name.lower().strip())
+
+
+# Canonical slug -> short display name (for formatted output)
+STAT_DISPLAY_NAMES: dict[str, str] = {
+    StatSlug.HP: "HP",
+    StatSlug.ATTACK: "Atk",
+    StatSlug.DEFENSE: "Def",
+    StatSlug.SPECIAL_ATTACK: "SAtk",
+    StatSlug.SPECIAL_DEFENSE: "SDef",
+    StatSlug.SPEED: "Spd",
+    # Also handle kebab-case (EVYield model format)
+    "special-attack": "SAtk",
+    "special-defense": "SDef",
+}
+
+
+def stat_to_display(slug: str) -> str:
+    """Convert a stat slug to its short display name.
+
+    Args:
+        slug: The stat slug (snake_case or kebab-case)
+
+    Returns:
+        Short display name (e.g., "SAtk") or the original slug if not found.
+    """
+    return STAT_DISPLAY_NAMES.get(slug, slug)
