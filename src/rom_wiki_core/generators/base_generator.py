@@ -10,6 +10,7 @@ from rom_wiki_core.utils.core.config_registry import set_config
 
 if TYPE_CHECKING:
     from rom_wiki_core.config import WikiConfig
+
 from rom_wiki_core.utils.core.logger import get_logger
 from rom_wiki_core.utils.formatters.table_formatter import create_table
 from rom_wiki_core.utils.formatters.yaml_formatter import update_pokedex_subsection
@@ -369,10 +370,11 @@ class BaseGenerator(ABC):
         """
         raise NotImplementedError("Subclasses must implement format_row()")
 
-    def format_changes_info_box(self, changes: list[dict[str, str]]) -> str:
+    def format_changes_info_box(self, name: str, changes: list[dict[str, str]]) -> str:
         """Format changes as a markdown info box.
 
         Args:
+            name (str): Name of the entity with changes
             changes: List of change dictionaries with keys: field, old_value, new_value, timestamp, source
 
         Returns:
@@ -381,15 +383,20 @@ class BaseGenerator(ABC):
         if not changes:
             return ""
 
-        md = '??? note "ROM Changes"\n\n'
+        md = f'??? note "{name} ROM Changes"\n\n'
+        fields_cache = set()
 
         for change in changes:
             field = change.get("field", "Unknown")
             old_val = change.get("old_value", "?")
             new_val = change.get("new_value", "?")
 
+            if field not in fields_cache:
+                fields_cache.add(field)
+                md += f"\t**{field} Changes:**\n\n"
+
             # Format the change line with code blocks for values
-            md += f"    **{field}:** `{old_val}` → `{new_val}`\n\n"
+            md += f"\t- `{old_val}` → `{new_val}`\n\n"
 
         return md
 

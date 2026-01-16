@@ -386,7 +386,7 @@ class ItemGenerator(BaseGenerator):
         md += self._generate_item_header(entry)
 
         if hasattr(entry, "changes") and entry.changes:
-            md += "\n" + self.format_changes_info_box(entry.changes) + "\n"
+            md += "\n" + self.format_changes_info_box(display_name, entry.changes) + "\n"
 
         # Add sections
         md += self._generate_effect_section(entry)
