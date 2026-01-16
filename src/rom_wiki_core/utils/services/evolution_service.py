@@ -6,7 +6,6 @@ evolution chains, separating it from the parser implementation.
 """
 
 import copy
-from typing import Optional
 
 from rom_wiki_core.utils.core.loader import PokeDBLoader
 from rom_wiki_core.utils.core.logger import get_logger
@@ -19,6 +18,9 @@ from rom_wiki_core.utils.services.base_service import BaseService
 
 logger = get_logger(__name__)
 
+# Constants
+UNKNOWN_EVOLUTION = "unknown"
+
 
 class EvolutionService(BaseService):
     """
@@ -29,19 +31,19 @@ class EvolutionService(BaseService):
     """
 
     @staticmethod
-    def _format_evolution_details(details: Optional[EvolutionDetails]) -> str:
+    def _format_evolution_details(details: EvolutionDetails | None) -> str:
         """Format evolution details into a readable string.
 
         Args:
-            details (Optional[EvolutionDetails]): The evolution details to format
+            details (EvolutionDetails | None): The evolution details to format
 
         Returns:
             str: A human-readable description of the evolution method
         """
         if not details:
-            return "unknown"
+            return UNKNOWN_EVOLUTION
 
-        trigger = details.trigger or "unknown"
+        trigger = details.trigger or UNKNOWN_EVOLUTION
         parts = [trigger]
 
         # Add relevant details based on trigger type
@@ -66,7 +68,7 @@ class EvolutionService(BaseService):
         evolution_chain: EvolutionChain,
         pokemon_id: str,
         evolution_id: str,
-    ) -> Optional[EvolutionDetails]:
+    ) -> EvolutionDetails | None:
         """Find existing evolution details for a specific evolution path.
 
         Args:
@@ -75,10 +77,10 @@ class EvolutionService(BaseService):
             evolution_id (str): The evolution target
 
         Returns:
-            Optional[EvolutionDetails]: The existing evolution details, or None
+            EvolutionDetails | None: The existing evolution details, or None
         """
 
-        def search_node(node: EvolutionChain | EvolutionNode) -> Optional[EvolutionDetails]:
+        def search_node(node: EvolutionChain | EvolutionNode) -> EvolutionDetails | None:
             if node.species_name == pokemon_id:
                 for evo in node.evolves_to:
                     if evo.species_name == evolution_id:
@@ -98,7 +100,7 @@ class EvolutionService(BaseService):
         evolution_chain: EvolutionChain,
         evolution_details: EvolutionDetails,
         keep_existing: bool = False,
-        processed: Optional[set] = None,
+        processed: set | None = None,
     ) -> EvolutionChain:
         """Update an evolution chain with new evolution details.
 
@@ -108,7 +110,7 @@ class EvolutionService(BaseService):
             evolution_chain (EvolutionChain): The evolution chain to update
             evolution_details (EvolutionDetails): The new evolution details
             keep_existing (bool, optional): If True, add to existing methods; if False, replace
-            processed (Optional[set], optional): Set of pokemon_ids already processed (for internal use)
+            processed (set | None, optional): Set of pokemon_ids already processed (for internal use)
 
         Returns:
             EvolutionChain: The updated evolution chain

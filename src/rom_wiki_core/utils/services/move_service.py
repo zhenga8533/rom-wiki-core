@@ -108,10 +108,10 @@ class MoveService(BaseService):
             logger.warning(f"Move '{move_name}' not found in {source_gen}: {source_path}")
             return False
 
-        # Skip if destination already exists
+        # Skip if destination already exists (return True since move is available)
         if dest_path.exists():
             logger.debug(f"Move '{move_name}' already exists in parsed data, skipping")
-            return False
+            return True
 
         # Create destination directory if needed
         parsed_move_dir.mkdir(parents=True, exist_ok=True)
