@@ -1242,7 +1242,7 @@ class PokemonGenerator(BaseGenerator):
         md += self._generate_hero_section(entry)
 
         if hasattr(entry, "changes") and entry.changes:
-            md += "\n" + self.format_changes_info_box(entry.changes) + "\n"
+            md += "\n" + self.format_changes_info_box(display_name, entry.changes) + "\n"
 
         md += self._generate_basic_info(entry)
         md += self._generate_held_items_section(entry)
