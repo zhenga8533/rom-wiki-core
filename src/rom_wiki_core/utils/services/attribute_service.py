@@ -140,7 +140,9 @@ class AttributeService(BaseService):
             pokemon_data.abilities = abilities
 
             # Build new abilities list for change tracking
-            new_abilities = [{"name": a.name, "is_hidden": a.is_hidden, "slot": a.slot} for a in abilities]
+            new_abilities = [
+                {"name": a.name, "is_hidden": a.is_hidden, "slot": a.slot} for a in abilities
+            ]
 
             # Record change
             old_value, new_value = BaseService.format_ability_change(old_abilities, new_abilities)
@@ -364,7 +366,9 @@ class AttributeService(BaseService):
             pokemon_data.gender_rate = gender_rate
 
             # Record change
-            old_value, new_value = BaseService.format_gender_ratio_change(old_gender_rate, gender_rate)
+            old_value, new_value = BaseService.format_gender_ratio_change(
+                old_gender_rate, gender_rate
+            )
             BaseService.record_change(
                 pokemon_data,
                 field="Gender Ratio",
@@ -566,4 +570,55 @@ class AttributeService(BaseService):
 
         except (OSError, IOError, ValueError) as e:
             logger.warning(f"Error updating growth rate for Pokemon '{pokemon_id}': {e}")
+            return False
+
+    @staticmethod
+    def delete_ability_slot(pokemon_id: str, slot: int) -> bool:
+        """Delete an ability from a specific slot for a Pokemon.
+
+        Args:
+            pokemon_id: The ID of the Pokemon to update (e.g., "pikachu", "pikachu-cosplay").
+            slot: The slot number (1, 2, or 3) to delete.
+
+        Returns:
+            True if the ability was deleted successfully, False otherwise.
+        """
+        try:
+            pokemon_data = PokeDBLoader.load_pokemon(pokemon_id)
+            if pokemon_data is None:
+                logger.warning(f"Pokemon '{pokemon_id}' not found in parsed data")
+                return False
+
+            # Find ability in the specified slot
+            ability_to_delete = None
+            for ability in pokemon_data.abilities:
+                if ability.slot == slot:
+                    ability_to_delete = ability
+                    break
+
+            if not ability_to_delete:
+                logger.warning(f"No ability found in slot {slot} for Pokemon '{pokemon_id}'")
+                return False
+
+            # Capture old value for change tracking
+            old_value = ability_to_delete.name
+
+            # Delete the ability
+            pokemon_data.abilities.remove(ability_to_delete)
+
+            # Record change
+            BaseService.record_change(
+                pokemon_data,
+                field=f"Ability (slot {slot})",
+                old_value=old_value,
+                new_value="(none)",
+                source="attribute_service",
+            )
+
+            PokeDBLoader.save_pokemon(pokemon_id, pokemon_data)
+            logger.info(f"Deleted ability from slot {slot} for '{pokemon_id}': {old_value}")
+            return True
+
+        except (OSError, IOError, ValueError) as e:
+            logger.warning(f"Error deleting ability for Pokemon '{pokemon_id}': {e}")
             return False
